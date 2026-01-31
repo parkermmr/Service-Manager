@@ -88,3 +88,31 @@ Host wsl
     User <username (from powershell)>
     Port 2222
 ```
+
+#### Opening WSL as a Remote Host in VSCode
+
+A good way to run WSL as a server is to connect via VSCode's remote connection capability. This can be done by using the WSL forwarding server that was created as above. To ensure this works WSL has to be always running, so before we move onto VSCode we need to create a background subprocess for WSL to occupy on the current session.
+
+Create a file under called `~/.ssh/wsl_open.vbs` and enter in the following.
+
+```ps
+Set shell = CreateObject("WScript.Shell")
+shell.Run "wsl -d ubuntu -u parke sleep infinity", 0, False
+```
+
+Open PowerShell and execute the script as a background task.
+
+```ps
+wscript ~/.ssh/wsl_open.vbs
+```
+
+Next you will need to open VSCode and then:
+
+1. On the left hand side click the four blocks to open the `Extensions` tab.
+2. In the search bar on the left under the `EXTENSIONS: MARKETPLACE` enter `Remote - SSH`.
+3. Click on `Remote - SSH` and `Install`.
+4. On the bottom left hand corner click the remote ssh button (`><`).
+5. Select the option `Connect to Host`.
+6. Select the host we setup earlier named `wsl`.
+7. On the left hand side click `Open Folder`.
+8. Select a working folder, and now you are ready to go.
