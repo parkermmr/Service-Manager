@@ -34,6 +34,9 @@ passwd
 After changing the password, enter the WSL environment as user.
 
 ```ps
+# If you have not already created ssh keys then run the following
+ssh-keygen -t rsa -b 4096
+
 # Get you username in PowerShell
 echo $env:USERNAME
 
@@ -53,9 +56,6 @@ sudo systemctl enable ssh --now
 # Ensure the .ssh directory exists with correct permissions
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
-
-# If you have not already created ssh keys then run the following
-ssh-keygen -t rsa -b 4096
 
 # Append your Windows public key to authorized_keys
 # This assumes your Windows drive is mounted at /mnt/c
