@@ -1,4 +1,15 @@
-#### Create a WSL SSH Forwarding
+## Service Manager v/ Ansible
+
+1. [WSL Setup](#wsl-setup)
+    - [Create a SSH Forwarded WSL Server Host](#creating-a-ssh-forwarded-wsl-server-host)
+    - [Opening WSL as a Remote Host in VSCode](#opening-wsl-as-a-remote-host-in-vscode)
+2. [Environment Setup](#environment-setup)
+    - [Installing Docker and Docker Compose](#installing-docker-and-docker-compose)
+    - [Deploying The Ansible Node Servers](#deploying-the-ansible-node-servers)
+
+### WSL Setup
+
+#### Creating a SSH Forwarded WSL Server Host
 
 One of the best ways to utilize WSL is using a the subsystem as a forward or "run server". This can be done by establishing an SSH connection between the localhost and the WSL subnet. Firstly, open a PowerShell session and:
 
@@ -118,7 +129,9 @@ Next you will need to open VSCode and then:
 7. On the left hand side click `Open Folder`.
 8. Select a working folder, and now you are ready to go.
 
-#### Installing Docker and Docker Compose WSL
+### Environment Setup
+
+#### Installing Docker and Docker Compose
 
 To utilize the remote ansible environment you will need to get Docker and Docker Compose. This can be done with the following steps. Firstly, to install Docker:
 
@@ -146,4 +159,31 @@ After installing docker, add the following docker compose plugin to the docker e
 mkdir -p ~/.docker/cli-plugins
 curl -SL https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
 chmod +x ~/.docker/cli-plugins/docker-compose
+```
+
+#### Deploying The Ansible Node Servers
+
+As part of setting up the service manager you will have to setup the node servers (build servers) which allow ansible to connect to remote hosts (psuedo remote hosts in this case using docker). This is all encapsulated in the `./builds/Dockerfile.node` and the `deployment.yaml`. Firstly, you will need to setup some pre-requisites before the node servers are deployed. Namely, the ssh keys required for the node server. This can be done by:
+
+```bash
+# Generate the key which will be used to auth into the node server
+ssh-keygen -t ed25519 -f ~/.ssh/ansible -C "ansible"
+```
+
+Afterwhich, you should be able to apply the docker compose deployment by:
+
+```bash
+# Apply the deployment from the build context
+docker compose -f builds/deployment.yaml up -d --build
+
+# Verify all the containers are up and running
+docker container ls
+
+# Expected Output
+#
+# CONTAINER ID   IMAGE                 COMMAND                  CREATED             STATUS             PORTS                                                             NAMES
+# d15d450687f4   builds-node-1         "/entrypoint.sh"         About an hour ago   Up About an hour   0.0.0.0:2223->22/tcp, [::]:2223->22/tcp                           node-1
+# f8b99bb66e7e   builds-node-3         "/entrypoint.sh"         About an hour ago   Up About an hour   0.0.0.0:2225->22/tcp, [::]:2225->22/tcp                           node-3
+# 454312c00d8a   builds-node-2         "/entrypoint.sh"         About an hour ago   Up About an hour   0.0.0.0:2224->22/tcp, [::]:2224->22/tcp                           node-2
+# da12ddac7b10   quay.io/minio/minio   "/usr/bin/docker-ent…"   9 days ago          Up 3 hours         0.0.0.0:9000-9001->9000-9001/tcp, [::]:9000-9001->9000-9001/tcp   interesting_goldwasser
 ```
