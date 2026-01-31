@@ -13,7 +13,7 @@
 
 One of the best ways to utilize WSL is using a the subsystem as a forward or "run server". This can be done by establishing an SSH connection between the localhost and the WSL subnet. Firstly, open a PowerShell session and:
 
-```ps
+```powershell
 # Install the ubuntu distribution
 wsl --install --distribution ubuntu
 
@@ -33,7 +33,7 @@ passwd
 
 After changing the password, enter the WSL environment as user.
 
-```ps
+```powershell
 # If you have not already created ssh keys then run the following
 ssh-keygen -t rsa -b 4096
 
@@ -72,7 +72,7 @@ sudo systemctl daemon-reload
 
 Next you will need to setup you user in WSL, under the `/etc/wsl.conf` file add the following:
 
-```config
+```toml
 ...
 [user]
 default=<username (from powershell)>
@@ -85,7 +85,7 @@ hostname -I | awk '{print $1}'
 
 You can now exit WSL and open a new PowerShell terminal in administrator mode. We need to setup the firewall rules to enable ssh into WSL.
 
-```ps
+```powershell
 # Setup the proxy into the WSL box
 netsh interface portproxy add v4tov4 listenport=2222 listenaddress=0.0.0.0 connectport=2222 connectaddress=<wsl-ip>
 
@@ -95,7 +95,7 @@ netsh advfirewall firewall add rule name="WSL SSH" dir=in action=allow protocol=
 
 After creating all is done, edit on your windows machine you `~/.ssh/config` file to have the contents:
 
-```config
+```yaml
 Host wsl
     Hostname localhost
     IdentityFile ~/.ssh/id_rsa
@@ -109,14 +109,14 @@ A good way to run WSL as a server is to connect via VSCode's remote connection c
 
 Create a file under called `~/.ssh/wsl_open.vbs` and enter in the following.
 
-```ps
+```powershell
 Set shell = CreateObject("WScript.Shell")
 shell.Run "wsl -d ubuntu -u parke sleep infinity", 0, False
 ```
 
 Open PowerShell and execute the script as a background task.
 
-```ps
+```powershell
 # Run the Windows script and close the terminal.
 wscript ~/.ssh/wsl_open.vbs
 ```
