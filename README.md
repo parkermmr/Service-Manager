@@ -73,9 +73,9 @@ sudo systemctl daemon-reload
 Next you will need to setup you user in WSL, under the `/etc/wsl.conf` file add the following:
 
 ```toml
-...
+# ...
 [user]
-default=<username (from powershell)>
+default={username (from powershell)}
 ```
 
 After that is completed, within WSL we want to get the subnet IP address which can be obtained with:
