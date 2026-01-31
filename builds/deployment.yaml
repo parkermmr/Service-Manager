@@ -1,0 +1,39 @@
+services:
+  node-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        USERNAME: ${USER}
+    container_name: node-1
+    hostname: node-1
+    ports:
+      - "2223:22"
+    volumes:
+      - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
+
+  node-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        USERNAME: ${USER}
+    container_name: node-2
+    hostname: node-2
+    ports:
+      - "2224:22"
+    volumes:
+      - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
+
+  node-3:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+      args:
+        USERNAME: ${USER}
+    container_name: node-3
+    hostname: node-3
+    ports:
+      - "2225:22"
+    volumes:
+      - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
