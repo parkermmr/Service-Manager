@@ -193,10 +193,31 @@ You can now exit WSL and open a new PowerShell terminal in administrator mode. W
 # bussiness, or other entity has one public IP address. For the general person this is the IP
 # that if you ping will hit your router. Then here is where your router comes in; every device
 # in your house is assigned a Private Class C (LAN) IP address, and when someone requests your
-# computer they will use your public IP address.
+# computer they will use your public IP address, followed by your internal LAN address. Your
+# router receives the request for the public IP address and then routes it to the internal LAN
+# address. This follows the simple map of:
+#
+# Someone sends request -> Router (Internet IP) -> Computer (Private LAN Address)
+#
+# This is how a lot of communication with the internet actually works in principle. The other
+# type we will cover is the Private Class B internet address which will likely be what your
+# WSL IP address is bound to. This is used for internal subnets which sit on devices inside a
+# LAN (Local Area Network) which are used for routing within a device. So if something wanted
+# to reach this IP Address they would have to go through the process of:
+#
+# Someone sends request -> Router (Internet IP) -> Computer (Private LAN Address) -> Subsystem (Private Class B Address)
+#
+# This is why we need to setup a proxy. By default this address is private, your local computer cannot by default route
+# information to this IP address without setting up a forward. In this case we are using the address 0.0.0.0 to forward
+# data coming through on port 2222 to information on port 2222 on our WSL IP. This voodoo magic happens because when we
+# bind an address to 0.0.0.0 it tells the computer that we want all traffic on this computer on this port no matter what
+# IP to route directly to this specific subnet interface. And this is the case where we use this proxy.
 netsh interface portproxy add v4tov4 listenport=2222 listenaddress=0.0.0.0 connectport=2222 connectaddress=<wsl-ip>
 
-# Open the firewall to allow traffic onto ssh port 2222
+# Open the firewall to allow traffic onto ssh port 2222.
+#
+# This command essentially just allows data to flow from within the local network to your device
+# on port 2222 if its using the TCP protocol. Which is the protocol used for data / file transfer.
 netsh advfirewall firewall add rule name="WSL SSH" dir=in action=allow protocol=TCP localport=2222
 ```
 
