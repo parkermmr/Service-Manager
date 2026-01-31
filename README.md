@@ -54,6 +54,9 @@ sudo systemctl enable ssh --now
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 
+# If you have not already created ssh keys then run the following
+ssh-keygen -t rsa -b 4096
+
 # Append your Windows public key to authorized_keys
 # This assumes your Windows drive is mounted at /mnt/c
 # If you haven't made ssh keys on windows yet, do ssh-keygen -t rsa
@@ -185,5 +188,4 @@ docker container ls
 # d15d450687f4   builds-node-1         "/entrypoint.sh"         About an hour ago   Up About an hour   0.0.0.0:2223->22/tcp, [::]:2223->22/tcp                           node-1
 # f8b99bb66e7e   builds-node-3         "/entrypoint.sh"         About an hour ago   Up About an hour   0.0.0.0:2225->22/tcp, [::]:2225->22/tcp                           node-3
 # 454312c00d8a   builds-node-2         "/entrypoint.sh"         About an hour ago   Up About an hour   0.0.0.0:2224->22/tcp, [::]:2224->22/tcp                           node-2
-# da12ddac7b10   quay.io/minio/minio   "/usr/bin/docker-ent…"   9 days ago          Up 3 hours         0.0.0.0:9000-9001->9000-9001/tcp, [::]:9000-9001->9000-9001/tcp   interesting_goldwasser
 ```
