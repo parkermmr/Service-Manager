@@ -103,6 +103,7 @@ shell.Run "wsl -d ubuntu -u parke sleep infinity", 0, False
 Open PowerShell and execute the script as a background task.
 
 ```ps
+# Run the Windows script and close the terminal.
 wscript ~/.ssh/wsl_open.vbs
 ```
 
@@ -116,3 +117,33 @@ Next you will need to open VSCode and then:
 6. Select the host we setup earlier named `wsl`.
 7. On the left hand side click `Open Folder`.
 8. Select a working folder, and now you are ready to go.
+
+#### Installing Docker and Docker Compose WSL
+
+To utilize the remote ansible environment you will need to get Docker and Docker Compose. This can be done with the following steps. Firstly, to install Docker:
+
+```bash
+# Update packages and install docker
+sudo apt update
+sudo apt install docker
+```
+
+Next you will need to create the groups for docker to run as non-sudo user.
+
+```bash
+# Add the docker group and give permissions to the current user
+sudo groupadd docker
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify that the docker permissions were update sucessfully
+docker run hello-world
+```
+
+After installing docker, add the following docker compose plugin to the docker engine by.
+
+```bash
+mkdir -p ~/.docker/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
+```
