@@ -1,0 +1,89 @@
+FROM ubuntu:22.04
+
+ARG USERNAME
+ENV USER=${USERNAME}
+ENV USERNAME=${USERNAME}
+
+# Install required packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    openssh-server \
+    python3 \
+    python3-pip \
+    python3-venv \
+    sudo \
+    curl \
+    gnupg \
+    libstdc++6 \
+    util-linux \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add user and give sudo without password
+RUN adduser --disabled-password --gecos "" ${USERNAME} \
+ && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
+ && echo "${USERNAME}:nopassword" | chpasswd
+
+# Fix shell in /etc/passwd
+RUN usermod -s /bin/bash ${USERNAME}
+
+# Setup home directory, bash config, and application bin
+RUN mkdir -p /home/${USERNAME}/.ssh /home/${USERNAME}/application/bin \
+ && touch /home/${USERNAME}/.bashrc \
+ && echo "export PATH=/home/${USERNAME}/application/bin:/home/${USERNAME}/.local/bin:\$PATH" >> /home/${USERNAME}/.bashrc \
+ && chmod 700 /home/${USERNAME}/.ssh \
+ && chmod 644 /home/${USERNAME}/.bashrc \
+ && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} \
+ && echo 'if [ -f ~/.bashrc ]; then . ~/.bashrc; fi' >> /home/${USERNAME}/.bash_profile
+
+# SSH host keys directory
+RUN mkdir -p /home/${USERNAME}/ssh_keys \
+ && chmod 700 /home/${USERNAME}/ssh_keys \
+ && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/ssh_keys
+
+# SSH config under .ssh
+RUN mkdir -p /home/${USERNAME}/.ssh \
+ && cat <<EOF > /home/${USERNAME}/.ssh/sshd_config
+PasswordAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+Port 2222
+HostKey /home/${USERNAME}/ssh_keys/ssh_host_rsa_key
+HostKey /home/${USERNAME}/ssh_keys/ssh_host_ecdsa_key
+HostKey /home/${USERNAME}/ssh_keys/ssh_host_ed25519_key
+Subsystem sftp /usr/lib/openssh/sftp-server
+EOF
+
+RUN chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.ssh/sshd_config \
+ && chmod 600 /home/${USERNAME}/.ssh/sshd_config
+
+# Expose SSH
+EXPOSE 2222
+
+# Before switching to USER
+RUN python3 -m pip install --upgrade pip \
+ && python3 -m pip install pipx
+
+# Switch to normal user
+USER ${USERNAME}
+
+# Install pipx and Ansible
+RUN pipx ensurepath \
+ && pipx install ansible \
+ && pipx install ansible-core
+
+# Prepare Ansible directories
+RUN mkdir -p /home/${USERNAME}/.ansible/collections /home/${USERNAME}/.ansible/plugins/modules \
+ && /home/${USERNAME}/.local/bin/ansible-galaxy collection install ansible.posix
+
+RUN mkdir -p /home/${USERNAME}/application/bin && \
+    mkdir -p /home/${USERNAME}/application/config
+
+# Copy entrypoint script
+COPY entrypoint.sh /home/${USERNAME}/.local/bin/entrypoint.sh
+COPY ./application /home/${USERNAME}/application
+
+RUN gcc -Wall -Wextra -O2 /home/${USERNAME}/application/src/application.c -o /home/${USERNAME}/application/bin/application
+
+# Set entrypoint
+CMD ["bash", "-c", "/home/$USERNAME/.local/bin/entrypoint.sh"]

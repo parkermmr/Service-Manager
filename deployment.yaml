@@ -7,8 +7,9 @@ services:
         USERNAME: ${USER}
     container_name: node-1
     hostname: node-1
+    restart: always
     ports:
-      - "2223:22"
+      - "2223:2222"
     volumes:
       - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
 
@@ -20,8 +21,9 @@ services:
         USERNAME: ${USER}
     container_name: node-2
     hostname: node-2
+    restart: always
     ports:
-      - "2224:22"
+      - "2224:2222"
     volumes:
       - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
 
@@ -33,7 +35,9 @@ services:
         USERNAME: ${USER}
     container_name: node-3
     hostname: node-3
+    restart: always
     ports:
-      - "2225:22"
+      - "2225:2222"
     volumes:
       - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
+  

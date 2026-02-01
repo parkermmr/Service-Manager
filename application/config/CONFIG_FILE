@@ -1,0 +1,6 @@
+# APPLICATION_RUN_INTERVAL: seconds between updates.
+# APPLICATION_PID_FILE: output file for the application process id.
+# APPLICATION_DATA_FILE: output file where the application data is written to.
+APPLICATION_RUN_INTERVAL        3
+APPLICATION_PID_FILE            /home/${USER}/application/run/application.pid
+APPLICATION_DATA_FILE           /home/${USER}/application/run/application.data

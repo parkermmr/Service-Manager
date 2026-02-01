@@ -375,7 +375,7 @@ Afterwhich, you should be able to apply the docker compose deployment directly, 
 # port / ip combination, it will fail due to security risks with
 # MITM (Man In The Middle) Attacks. If the server needs to be restarted, the host
 # key fingerprint will need to be removed in the '~/.ssh/known_hosts' file.
-docker compose -f builds/deployment.yaml up -d --build
+docker compose -f deployment.yaml up -d --build
 
 # Expected Output:
 #
