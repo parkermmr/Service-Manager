@@ -1,0 +1,15 @@
+# Here is an example of how you can setup your ssh config file
+Host node-1
+    Hostname localhost
+    Port 2223
+    IdentityFile ~/.ssh/ansible
+
+Host node-2
+    Hostname localhost
+    Port 2224
+    IdentityFile ~/.ssh/ansible
+
+Host node-3
+    Hostname localhost
+    Port 2225
+    IdentityFile ~/.ssh/ansible

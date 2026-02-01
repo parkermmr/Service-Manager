@@ -396,3 +396,19 @@ docker container ls
 # 454312c00d8a   builds-node-2         "/entrypoint.sh"         About an hour ago   Up About an hour   0.0.0.0:2224->22/tcp, [::]:2224->22/tcp                           node-2
 # f8b99bb66e7e   builds-node-3         "/entrypoint.sh"         About an hour ago   Up About an hour   0.0.0.0:2225->22/tcp, [::]:2225->22/tcp                           node-3
 ```
+
+To test if the ssh connection is working, you can run the ssh command directly into `node-1` by:
+
+```bash
+ssh -i ~/.ssh/ansible -p 2223 localhost
+```
+
+Next you can setup you ssh config file to be able to ssh directly into nodes from your machine without writing the full command.
+
+``` bash
+# Create an ssh config file if it does not already exist
+touch ~/.ssh/config
+
+# Divert the output from the repos config file to your own
+cat config >> ~/.ssh/config
+```
