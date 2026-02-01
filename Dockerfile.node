@@ -66,6 +66,56 @@ RUN chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.ssh/sshd_config \
 # Expose SSH
 EXPOSE 2222
 
+###### PROMETHEUS SECTION #######
+
+# Set Prometheus and Node Exporter versions
+ENV PROMETHEUS_VERSION=3.5.1
+ENV NODE_EXPORTER_VERSION=1.10.2
+
+# Create directories for Prometheus and Node Exporter
+RUN mkdir -p /opt/prometheus /opt/node_exporter
+
+# Download and extract Prometheus (v3.x)
+RUN curl -L -o /tmp/prometheus.tar.gz \
+      https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz \
+ && tar xzf /tmp/prometheus.tar.gz -C /tmp \
+ && cp /tmp/*prometheus-${PROMETHEUS_VERSION}.linux-amd64/prometheus /opt/prometheus/ \
+ && cp /tmp/*prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool /opt/prometheus/ \
+ && mkdir -p /opt/prometheus/consoles /opt/prometheus/console_libraries \
+ && cp -r /tmp/*prometheus-${PROMETHEUS_VERSION}.linux-amd64/consoles/* /opt/prometheus/consoles/ 2>/dev/null || true \
+ && cp -r /tmp/*prometheus-${PROMETHEUS_VERSION}.linux-amd64/console_libraries/* /opt/prometheus/console_libraries/ 2>/dev/null || true \
+ && rm -rf /tmp/prometheus*
+
+# Download and install Node Exporter
+RUN curl -L -o /tmp/node_exporter.tar.gz \
+      https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz \
+ && tar xzf /tmp/node_exporter.tar.gz -C /tmp \
+ && mv /tmp/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter /opt/node_exporter/ \
+ && rm -rf /tmp/node_exporter*
+
+EXPOSE 9100
+
+# Create Prometheus config/data dirs for non‑root
+RUN mkdir -p /home/${USERNAME}/prometheus/config /home/${USERNAME}/prometheus/data \
+ && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/prometheus
+
+# Copy Prometheus config
+COPY prometheus.yaml /home/${USERNAME}/prometheus/config/prometheus.yml
+RUN chown ${USERNAME}:${USERNAME} /home/${USERNAME}/prometheus/config/prometheus.yml
+
+# Simple start scripts
+RUN echo "#!/bin/bash\n/opt/prometheus/prometheus \
+      --config.file=/home/${USERNAME}/prometheus/config/prometheus.yml \
+      --storage.tsdb.path=/home/${USERNAME}/prometheus/data" \
+      > /home/${USERNAME}/application/bin/start-prometheus.sh \
+ && echo "#!/bin/bash\n/opt/node_exporter/node_exporter" \
+      > /home/${USERNAME}/application/bin/start-node-exporter.sh \
+ && chmod +x /home/${USERNAME}/application/bin/start-prometheus.sh \
+ && chmod +x /home/${USERNAME}/application/bin/start-node-exporter.sh \
+ && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/application/bin/start-*.sh
+
+###### END PROMETHEUS SECTION #######
+
 # Before switching to USER
 # Add pip config here.
 RUN python3 -m pip install --upgrade pip \
