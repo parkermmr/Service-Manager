@@ -4,6 +4,12 @@ ARG USERNAME
 ENV USER=${USERNAME}
 ENV USERNAME=${USERNAME}
 
+# RUN curl -fsSL https://<ARTIFACTORY_URL>/artifactory/api/gpg/key/public | gpg --dearmor | sudo tee /usr/share/keyrings/mycompany-artifactory.gpg > /dev/null
+# RUN echo "deb [signed-by=/usr/share/keyrings/mycompany-artifactory.gpg] https://<ARTIFACTORY_URL>/artifactory/<REPO_KEY> <DISTRIBUTION> <COMPONENTS>" | sudo tee /etc/apt/sources.list.d/artifactory.list
+# Add your CA Certificates here or /etc/ssl/certs/
+# COPY ca.crt /usr/local/share/ca-certificates/ca.crt
+# RUN update-ca-certificates
+
 # Install required packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
@@ -61,6 +67,7 @@ RUN chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.ssh/sshd_config \
 EXPOSE 2222
 
 # Before switching to USER
+# Add pip config here.
 RUN python3 -m pip install --upgrade pip \
  && python3 -m pip install pipx
 
