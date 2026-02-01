@@ -64,6 +64,18 @@ EXPOSE 2222
 RUN python3 -m pip install --upgrade pip \
  && python3 -m pip install pipx
 
+
+RUN mkdir -p /home/${USERNAME}/application/bin && \
+    mkdir -p /home/${USERNAME}/application/config
+
+# Copy entrypoint script
+COPY entrypoint.sh /home/${USERNAME}/.local/bin/entrypoint.sh
+COPY ./application /home/${USERNAME}/application
+
+RUN gcc -Wall -Wextra -O2 /home/${USERNAME}/application/src/application.c -o /home/${USERNAME}/application/bin/application
+
+RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
+
 # Switch to normal user
 USER ${USERNAME}
 
@@ -75,15 +87,6 @@ RUN pipx ensurepath \
 # Prepare Ansible directories
 RUN mkdir -p /home/${USERNAME}/.ansible/collections /home/${USERNAME}/.ansible/plugins/modules \
  && /home/${USERNAME}/.local/bin/ansible-galaxy collection install ansible.posix
-
-RUN mkdir -p /home/${USERNAME}/application/bin && \
-    mkdir -p /home/${USERNAME}/application/config
-
-# Copy entrypoint script
-COPY entrypoint.sh /home/${USERNAME}/.local/bin/entrypoint.sh
-COPY ./application /home/${USERNAME}/application
-
-RUN gcc -Wall -Wextra -O2 /home/${USERNAME}/application/src/application.c -o /home/${USERNAME}/application/bin/application
 
 # Set entrypoint
 CMD ["bash", "-c", "/home/$USERNAME/.local/bin/entrypoint.sh"]
