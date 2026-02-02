@@ -412,3 +412,19 @@ touch ~/.ssh/config
 # Divert the output from the repos config file to your own
 cat config >> ~/.ssh/config
 ```
+
+### Monitoring
+
+#### Prometheus
+
+```bash
+nohup prometheus --config.file=/home/parke/prometheus/service_manager.yml > /home/parke/prometheus/prometheus.log 2>&1
+```
+
+#### Grafana
+
+```bash
+docker run -d \ --name=grafana \ --restart=always \ --network=host \ -v grafana-data:/var/lib/grafana \ grafana/grafana-oss
+
+curl -L   https://raw.githubusercontent.com/rfmoz/grafana-dashboards/master/prometheus/node-exporter-full.json   -o node-exporter-full.json
+```
