@@ -32,7 +32,7 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} 2>/dev/null || true \
 ##########################################
 COPY --chown=${USERNAME}:${USERNAME} ./application ${USER_HOME}/application/
 COPY --chown=${USERNAME}:${USERNAME} prometheus.yaml ${USER_HOME}/prometheus.yaml
-COPY --chown=${USERNAME}:${USERNAME} entrypoint.sh ${USER_HOME}/.local/bin/entrypoint.sh
+COPY --chown=${USERNAME}:${USERNAME} bin/entrypoint.sh ${USER_HOME}/.local/bin/entrypoint.sh
 RUN chmod +x ${USER_HOME}/.local/bin/entrypoint.sh
 
 ##########################################

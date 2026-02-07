@@ -1,0 +1,58 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.o
+*.so
+*.a
+*.dylib
+*.exe
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# SSH keys (security)
+*.pem
+*.key
+id_rsa
+id_ed25519
+ansible
+!ansible.pub
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Environment and build files
+.env
+.env.*
+!.env.example

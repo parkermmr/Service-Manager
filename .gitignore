@@ -1,0 +1,191 @@
+##########################################
+# C/C++ BUILD ARTIFACTS
+##########################################
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# Application binaries (adjust path as needed)
+application/bin/*
+!application/bin/.gitkeep
+!bin/.gitkeep
+
+##########################################
+# ENVIRONMENT & SECRETS
+##########################################
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+ansible
+ansible.pub
+*.crt
+*.csr
+
+##########################################
+# DOCKER
+##########################################
+docker-compose.override.yml
+
+##########################################
+# BUILD & TEMP FILES
+##########################################
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+core
+*.core
+vgcore.*
+
+##########################################
+# IDE & EDITORS
+##########################################
+# VSCode
+.vscode/
+*.code-workspace
+
+# IntelliJ / CLion
+.idea/
+*.iml
+*.iws
+*.ipr
+cmake-build-*/
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Eclipse
+.project
+.cproject
+.settings/
+
+##########################################
+# TAGS & INDEXES
+##########################################
+tags
+TAGS
+.tags
+.tags1
+cscope.*
+gtags.files
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+
+##########################################
+# TESTING & COVERAGE
+##########################################
+*.gcda
+*.gcno
+*.gcov
+*.lcov
+coverage/
+*.profdata
+*.profraw
+
+##########################################
+# PACKAGE MANAGERS
+##########################################
+# Conan
+conan.lock
+conanbuildinfo.*
+conaninfo.txt
+
+# vcpkg
+vcpkg_installed/
+
+##########################################
+# CMAKE
+##########################################
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+##########################################
+# MISC
+##########################################
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Compressed files (if not part of releases)
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
