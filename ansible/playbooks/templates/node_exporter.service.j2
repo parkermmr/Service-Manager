@@ -1,0 +1,14 @@
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User={{ user }}
+ExecStart=/home/{{ user }}/application/bin/start-node-exporter.sh
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

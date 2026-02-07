@@ -1,0 +1,23 @@
+---
+- name: Complete Node Deployment
+  hosts: nodes
+  become: false
+  
+  tasks:
+    - name: Include application deployment
+      import_tasks: tasks/deploy.yaml
+      when: application_enabled | default(true)
+      tags: [application, deploy]
+
+    - name: Include metrics deployment
+      import_tasks: tasks/metrics.yaml
+      when: metrics_enabled | default(true)
+      tags: [metrics, monitoring]
+
+    - name: Display deployment summary
+      debug:
+        msg:
+          - "Deployment completed for {{ inventory_hostname }}"
+          - "Application config: {{ application_config }}"
+          - "SSH: ssh -i ~/.ssh/ansible -p {{ ansible_port }} {{ ansible_user }}@{{ ansible_host }}"
+      tags: [always]

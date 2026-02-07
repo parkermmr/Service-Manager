@@ -1,0 +1,36 @@
+---
+- name: Ensure application directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+  loop:
+    - "{{ app_config_dir }}"
+    - "{{ app_dir }}/bin"
+    - "{{ app_dir }}/logs"
+    - "{{ app_dir }}/run"
+
+- name: Generate application configuration from template
+  template:
+    src: templates/application-config.j2
+    dest: "{{ app_config_file }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: '0644'
+  notify:
+    - Restart Application
+  register: config_changed
+
+- name: Check if application binary exists
+  stat:
+    path: "{{ app_bin }}"
+  register: app_binary
+
+- name: Display application status
+  debug:
+    msg: 
+      - "Application binary exists: {{ app_binary.stat.exists }}"
+      - "Configuration updated: {{ config_changed.changed }}"
+      - "Config file: {{ app_config_file }}"

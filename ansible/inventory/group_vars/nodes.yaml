@@ -1,0 +1,4 @@
+---
+# Node-specific configuration
+metrics_enabled: true
+application_enabled: true

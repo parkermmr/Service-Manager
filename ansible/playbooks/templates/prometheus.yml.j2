@@ -1,0 +1,26 @@
+# Prometheus Configuration for {{ inventory_hostname }}
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'node-cluster'
+    environment: 'production'
+    instance: '{{ inventory_hostname }}'
+    node_id: '{{ node_id }}'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: '{{ inventory_hostname }}'
+
+  # Node Exporter - local system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          instance: '{{ inventory_hostname }}'
+          hostname: '{{ hostname }}'

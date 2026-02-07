@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+LOG_DIR="{{ prometheus_log_dir }}"
+mkdir -p "$LOG_DIR"
+
+while true; do
+    {{ prometheus_bin }} \
+        --config.file={{ prometheus_config }} \
+        --storage.tsdb.path={{ prometheus_data_dir }} \
+        --web.listen-address=:9090 \
+        --web.enable-lifecycle
+    
+    EXIT_CODE=$?
+    echo "[$(date)] Prometheus exited with code $EXIT_CODE. Restarting in 5s..." | tee -a "$LOG_DIR/restart.log"
+    sleep 5
+done

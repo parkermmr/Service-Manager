@@ -1,0 +1,46 @@
+---
+- name: Check Service Status
+  hosts: nodes
+  become: false
+  gather_facts: true
+  
+  tasks:
+    - name: Check Prometheus status
+      shell: "pgrep -f 'prometheus.*--config.file' > /dev/null && echo 'running' || echo 'stopped'"
+      register: prometheus_status
+      changed_when: false
+      
+    - name: Check Node Exporter status
+      shell: "pgrep -f 'node_exporter' > /dev/null && echo 'running' || echo 'stopped'"
+      register: node_exporter_status
+      changed_when: false
+      
+    - name: Check Application status
+      shell: "pgrep -f '{{ app_bin }}' > /dev/null && echo 'running' || echo 'stopped'"
+      register: app_status
+      changed_when: false
+      ignore_errors: true
+      
+    - name: Check Prometheus endpoint
+      uri:
+        url: "http://localhost:9090/-/healthy"
+        timeout: 5
+      register: prometheus_health
+      failed_when: false
+      changed_when: false
+      
+    - name: Check Node Exporter endpoint
+      uri:
+        url: "http://localhost:9100/metrics"
+        timeout: 5
+      register: node_exporter_health
+      failed_when: false
+      changed_when: false
+      
+    - name: Display service status
+      debug:
+        msg:
+          - "=== {{ inventory_hostname }} Status ==="
+          - "Prometheus: {{ prometheus_status.stdout }} (HTTP: {{ prometheus_health.status | default('N/A') }})"
+          - "Node Exporter: {{ node_exporter_status.stdout }} (HTTP: {{ node_exporter_health.status | default('N/A') }})"
+          - "Application: {{ app_status.stdout }}"

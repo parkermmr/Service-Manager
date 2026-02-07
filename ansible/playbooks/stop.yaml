@@ -1,0 +1,24 @@
+---
+- name: Stop All Services on Nodes
+  hosts: nodes
+  become: false
+  
+  tasks:
+    - name: Stop all running services
+      shell: |
+        pkill -f 'prometheus.*--config.file' || true
+        pkill -f 'node_exporter' || true
+        pkill -f '{{ app_bin }}' || true
+      args:
+        executable: /bin/bash
+      
+    - name: Verify services stopped
+      shell: |
+        pgrep -f 'prometheus.*--config.file' && echo "Prometheus still running" || echo "Prometheus stopped"
+        pgrep -f 'node_exporter' && echo "Node Exporter still running" || echo "Node Exporter stopped"
+      register: service_status
+      changed_when: false
+      
+    - name: Display service status
+      debug:
+        var: service_status.stdout_lines

@@ -1,0 +1,27 @@
+---
+# User Configuration
+ansible_user: somebody
+app_user: somebody
+app_group: somebody
+
+# Application Paths
+app_home: "/home/{{ app_user }}"
+app_dir: "{{ app_home }}/application"
+app_bin: "{{ app_dir }}/bin/application"
+app_config_dir: "{{ app_dir }}/config"
+app_config_file: "{{ app_config_dir }}/CONFIG_FILE"
+
+# Prometheus Paths
+prometheus_home: "{{ app_home }}/prometheus"
+prometheus_config_dir: "{{ prometheus_home }}/config"
+prometheus_data_dir: "{{ prometheus_home }}/data"
+prometheus_log_dir: "{{ prometheus_home }}/logs"
+prometheus_bin: "/opt/prometheus/prometheus"
+prometheus_config: "{{ prometheus_config_dir }}/prometheus.yml"
+
+# Node Exporter Paths
+node_exporter_bin: "/opt/node_exporter/node_exporter"
+node_exporter_log_dir: "{{ app_home }}/logs"
+
+# Service Management
+use_systemd: false  # Set to true if systemd is available

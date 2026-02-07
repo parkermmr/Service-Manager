@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+LOG_DIR="{{ node_exporter_log_dir }}"
+mkdir -p "$LOG_DIR"
+
+while true; do
+    {{ node_exporter_bin }} \
+        --web.listen-address=:9100
+    
+    EXIT_CODE=$?
+    echo "[$(date)] Node Exporter exited with code $EXIT_CODE. Restarting in 5s..." | tee -a "$LOG_DIR/restart.log"
+    sleep 5
+done
