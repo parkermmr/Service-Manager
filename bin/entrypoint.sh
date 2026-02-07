@@ -21,10 +21,7 @@ echo "[entrypoint] Creating directory structure..."
 mkdir -p \
     "$SSH_DIR" \
     "$SSH_KEYS_DIR" \
-    "$USER_HOME/.local/bin" \
     "$APP_DIR/bin" \
-    "$APP_DIR/config" \
-    "$APP_DIR/src" \
     "$PROMETHEUS_CONFIG_DIR" \
     "$PROMETHEUS_DATA_DIR" \
     "$USER_HOME/.ansible/collections" \

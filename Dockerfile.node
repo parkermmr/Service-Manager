@@ -1,9 +1,9 @@
 ##########################################
-# GENERIC IMAGE - Application runtime
+# NODE IMAGE - Application runtime
 ##########################################
 ARG REGISTRY=localhost
 ARG VERSION=v1.0.0
-ARG BASE_IMAGE=localhost/node-base:$VERSION
+ARG BASE_IMAGE=${REGISTRY}/node-base:${VERSION}
 FROM ${BASE_IMAGE}
 
 ##########################################
@@ -28,11 +28,24 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} 2>/dev/null || true \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 
 ##########################################
+# CREATE DIRECTORY STRUCTURE WITH CORRECT OWNERSHIP
+##########################################
+RUN mkdir -p \
+    ${USER_HOME}/.ssh \
+    ${USER_HOME}/.local/bin \
+    ${USER_HOME}/ssh_keys \
+    ${USER_HOME}/application/bin \
+    ${USER_HOME}/application/config \
+    ${USER_HOME}/prometheus/config \
+    ${USER_HOME}/prometheus/data \
+    && chown -R ${USERNAME}:${USERNAME} ${USER_HOME}
+
+##########################################
 # APPLICATION FILES + ENTRYPOINT
 ##########################################
 COPY --chown=${USERNAME}:${USERNAME} ./application ${USER_HOME}/application/
-COPY --chown=${USERNAME}:${USERNAME} prometheus.yaml ${USER_HOME}/prometheus.yaml
-COPY --chown=${USERNAME}:${USERNAME} bin/entrypoint.sh ${USER_HOME}/.local/bin/entrypoint.sh
+COPY --chown=${USERNAME}:${USERNAME} ./prometheus/prometheus.yaml ${USER_HOME}/prometheus.yaml
+COPY --chown=${USERNAME}:${USERNAME} ./bin/entrypoint.sh ${USER_HOME}/.local/bin/entrypoint.sh
 RUN chmod +x ${USER_HOME}/.local/bin/entrypoint.sh
 
 ##########################################

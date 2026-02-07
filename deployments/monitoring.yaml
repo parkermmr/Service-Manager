@@ -1,0 +1,86 @@
+##########################################
+# DOCKER COMPOSE - MONITORING STACK
+##########################################
+# Deploy Prometheus and Grafana for cluster monitoring
+# Usage: docker compose -f docker/monitoring.yaml up -d
+
+version: '3.8'
+
+services:
+  ##########################################
+  # PROMETHEUS
+  ##########################################
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    hostname: prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../prometheus/prometheus-cluster.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ../prometheus/alerts.yaml:/etc/prometheus/alerts.yaml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - monitoring
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ##########################################
+  # GRAFANA
+  ##########################################
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    hostname: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+  ##########################################
+  # ALERTMANAGER (OPTIONAL)
+  ##########################################
+  # alertmanager:
+  #   image: prom/alertmanager:latest
+  #   container_name: alertmanager
+  #   hostname: alertmanager
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9093:9093"
+  #   volumes:
+  #     - ../prometheus/alertmanager.yaml:/etc/alertmanager/alertmanager.yaml:ro
+  #     - alertmanager-data:/alertmanager
+  #   networks:
+  #     - monitoring
+
+##########################################
+# VOLUMES
+##########################################
+volumes:
+  prometheus-data:
+  grafana-data:
+  # alertmanager-data:
+
+##########################################
+# NETWORKS
+##########################################
+networks:
+  monitoring:
+    name: monitoring
+    driver: bridge
