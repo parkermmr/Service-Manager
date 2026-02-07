@@ -1,0 +1,119 @@
+---
+- name: Ensure Prometheus directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_data_dir }}"
+    - "{{ prometheus_log_dir }}"
+    - "{{ node_exporter_log_dir }}"
+
+- name: Create Prometheus configuration from template
+  template:
+    src: prometheus.yml.j2
+    dest: "{{ prometheus_config }}"
+    mode: '0644'
+
+- name: Create Prometheus start script
+  copy:
+    dest: "{{ app_dir }}/bin/start-prometheus.sh"
+    content: |
+      #!/bin/bash
+      mkdir -p "{{ prometheus_log_dir }}"
+      while true; do
+          "{{ prometheus_bin }}" --config.file="{{ prometheus_config }}" --storage.tsdb.path="{{ prometheus_data_dir }}"
+          echo "Prometheus exited unexpectedly. Restarting in 5s..."
+          sleep 5
+      done
+    mode: '0755'
+
+- name: Create Node Exporter start script
+  copy:
+    dest: "{{ app_dir }}/bin/start-node-exporter.sh"
+    content: |
+      #!/bin/bash
+      while true; do
+          "{{ node_exporter_bin }}"
+          echo "Node Exporter exited unexpectedly. Restarting in 5s..."
+          sleep 5
+      done
+    mode: '0755'
+
+- name: Check if Prometheus port is listening
+  shell: "ss -tuln | grep ':9090 ' > /dev/null 2>&1 && echo 'running' || echo 'stopped'"
+  register: prometheus_status
+  changed_when: false
+  failed_when: false
+
+- name: Check if Node Exporter port is listening
+  shell: "ss -tuln | grep ':9100 ' > /dev/null 2>&1 && echo 'running' || echo 'stopped'"
+  register: node_exporter_status
+  changed_when: false
+  failed_when: false
+
+- name: Display current status
+  debug:
+    msg:
+      - "Prometheus currently: {{ prometheus_status.stdout }}"
+      - "Node Exporter currently: {{ node_exporter_status.stdout }}"
+
+- name: Start Prometheus in background
+  shell: "nohup {{ app_dir }}/bin/start-prometheus.sh > {{ prometheus_log_dir }}/prometheus.log 2>&1 &"
+  args:
+    executable: /bin/bash
+  when: prometheus_status.stdout == "stopped"
+
+- name: Start Node Exporter in background
+  shell: "nohup {{ app_dir }}/bin/start-node-exporter.sh > {{ node_exporter_log_dir }}/node_exporter.log 2>&1 &"
+  args:
+    executable: /bin/bash
+  when: node_exporter_status.stdout == "stopped"
+
+- name: Wait for services to initialize
+  pause:
+    seconds: 5
+  when: prometheus_status.stdout == "stopped" or node_exporter_status.stdout == "stopped"
+
+- name: Verify Prometheus is responding (inside container)
+  shell: "curl -sf http://localhost:9090/-/healthy > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'"
+  register: prometheus_health
+  changed_when: false
+  failed_when: false
+
+- name: Verify Node Exporter is responding (inside container)
+  shell: "curl -sf http://localhost:9100/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'"
+  register: node_exporter_health
+  changed_when: false
+  failed_when: false
+
+- name: Show Prometheus logs if failed
+  shell: "tail -30 {{ prometheus_log_dir }}/prometheus.log 2>/dev/null || echo 'No log file found'"
+  when: prometheus_health.stdout != "OK"
+  register: prom_logs
+  changed_when: false
+  failed_when: false
+
+- name: Show Node Exporter logs if failed
+  shell: "tail -30 {{ node_exporter_log_dir }}/node_exporter.log 2>/dev/null || echo 'No log file found'"
+  when: node_exporter_health.stdout != "OK"
+  register: ne_logs
+  changed_when: false
+  failed_when: false
+
+- name: Display health status
+  debug:
+    msg:
+      - "{{ inventory_hostname }} - Prometheus: {{ 'RUNNING' if prometheus_health.stdout == 'OK' else 'FAILED' }}"
+      - "{{ inventory_hostname }} - Node Exporter: {{ 'RUNNING' if node_exporter_health.stdout == 'OK' else 'FAILED' }}"
+
+- name: Display Prometheus logs if failed
+  debug:
+    var: prom_logs.stdout_lines
+  when: prometheus_health.stdout != "OK" and prom_logs.stdout is defined and prom_logs.stdout != "No log file found"
+
+- name: Display Node Exporter logs if failed
+  debug:
+    var: ne_logs.stdout_lines
+  when: node_exporter_health.stdout != "OK" and ne_logs.stdout is defined and ne_logs.stdout != "No log file found"

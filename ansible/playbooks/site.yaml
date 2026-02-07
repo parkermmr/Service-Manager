@@ -3,6 +3,34 @@
   hosts: nodes
   become: false
   
+  handlers:
+    - name: Restart Application
+      shell: |
+        if pgrep -f "{{ app_bin }}" > /dev/null; then
+          {{ app_bin }} restart
+        else
+          echo "Application not running, skipping restart"
+        fi
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    - name: Restart Prometheus
+      shell: |
+        pkill -f 'prometheus.*--config.file' || true
+        sleep 2
+        nohup {{ app_dir }}/bin/start-prometheus.sh > {{ prometheus_log_dir }}/prometheus.log 2>&1 &
+      args:
+        executable: /bin/bash
+
+    - name: Restart Node Exporter
+      shell: |
+        pkill -f 'node_exporter' || true
+        sleep 2
+        nohup {{ app_dir }}/bin/start-node-exporter.sh > {{ node_exporter_log_dir }}/node_exporter.log 2>&1 &
+      args:
+        executable: /bin/bash
+
   tasks:
     - name: Include application deployment
       import_tasks: tasks/deploy.yaml
@@ -18,6 +46,5 @@
       debug:
         msg:
           - "Deployment completed for {{ inventory_hostname }}"
-          - "Application config: {{ application_config }}"
           - "SSH: ssh -i ~/.ssh/ansible -p {{ ansible_port }} {{ ansible_user }}@{{ ansible_host }}"
       tags: [always]

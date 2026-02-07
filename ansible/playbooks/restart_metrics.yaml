@@ -1,0 +1,57 @@
+---
+- name: Restart Metrics Services
+  hosts: nodes
+  become: false
+  
+  tasks:
+    - name: Kill Prometheus processes (ignore errors)
+      shell: "pkill -9 -f 'prometheus.*--config.file'; exit 0"
+      args:
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+        
+    - name: Kill Node Exporter processes (ignore errors)
+      shell: "pkill -9 -f 'node_exporter'; exit 0"
+      args:
+        executable: /bin/bash
+      changed_when: false
+      failed_when: false
+        
+    - name: Wait for processes to terminate
+      pause:
+        seconds: 3
+        
+    - name: Start Prometheus
+      shell: "nohup {{ app_dir }}/bin/start-prometheus.sh > {{ prometheus_log_dir }}/prometheus.log 2>&1 &"
+      args:
+        executable: /bin/bash
+        
+    - name: Start Node Exporter
+      shell: "nohup {{ app_dir }}/bin/start-node-exporter.sh > {{ node_exporter_log_dir }}/node_exporter.log 2>&1 &"
+      args:
+        executable: /bin/bash
+        
+    - name: Wait for services to start
+      pause:
+        seconds: 5
+        
+    - name: Check Prometheus
+      uri:
+        url: "http://localhost:9090/-/healthy"
+        timeout: 5
+      register: prometheus_check
+      failed_when: false
+      
+    - name: Check Node Exporter
+      uri:
+        url: "http://localhost:9100/metrics"
+        timeout: 5
+      register: node_exporter_check
+      failed_when: false
+      
+    - name: Show results
+      debug:
+        msg:
+          - "Prometheus: {{ 'RUNNING' if prometheus_check.status|default(0) == 200 else 'FAILED' }}"
+          - "Node Exporter: {{ 'RUNNING' if node_exporter_check.status|default(0) == 200 else 'FAILED' }}"

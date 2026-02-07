@@ -173,7 +173,6 @@ service-manager/
 │       ├── status.yaml             # Status check playbook
 │       ├── stop.yaml               # Stop services playbook
 │       ├── tasks/                  # Task files
-│       ├── handlers/               # Handler definitions
 │       └── templates/              # Jinja2 templates
 ├── application/        
 │   ├── src/        
@@ -1365,7 +1364,7 @@ netsh interface portproxy add v4tov4 `
   connectaddress=172.18.240.1
 ```
 
-**⚠️ CRITICAL: Replace `172.18.240.1` with YOUR actual WSL IP!**
+**CRITICAL: Replace `172.18.240.1` with YOUR actual WSL IP!**
 
 **Expected Output:**
 ```

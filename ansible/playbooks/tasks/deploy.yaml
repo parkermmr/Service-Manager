@@ -4,8 +4,6 @@
     path: "{{ item }}"
     state: directory
     mode: '0755'
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
   loop:
     - "{{ app_config_dir }}"
     - "{{ app_dir }}/bin"
@@ -14,10 +12,8 @@
 
 - name: Generate application configuration from template
   template:
-    src: templates/application-config.j2
+    src: application-config.j2
     dest: "{{ app_config_file }}"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
     mode: '0644'
   notify:
     - Restart Application

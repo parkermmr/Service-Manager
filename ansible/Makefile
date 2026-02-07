@@ -22,6 +22,9 @@ metrics:
 status:
 	ansible-playbook playbooks/status.yaml
 
+restart:
+	ansible-playbook playbooks/restart_metrics.yaml
+
 stop:
 	ansible-playbook playbooks/stop.yaml
 
