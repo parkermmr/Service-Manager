@@ -1,149 +1,55 @@
-FROM ubuntu:22.04
+##########################################
+# GENERIC IMAGE - Application runtime
+##########################################
+ARG REGISTRY=localhost
+ARG VERSION=v1.0.0
+ARG BASE_IMAGE=localhost/node-base:$VERSION
+FROM ${BASE_IMAGE}
 
-ARG USERNAME
-ENV USER=${USERNAME}
-ENV USERNAME=${USERNAME}
+##########################################
+# BUILD ARGUMENTS
+##########################################
+ARG USERNAME=somebody
+ARG USER_UID=1000
+ARG USER_GID=1000
 
-# RUN curl -fsSL https://<ARTIFACTORY_URL>/artifactory/api/gpg/key/public | gpg --dearmor | sudo tee /usr/share/keyrings/mycompany-artifactory.gpg > /dev/null
-# RUN echo "deb [signed-by=/usr/share/keyrings/mycompany-artifactory.gpg] https://<ARTIFACTORY_URL>/artifactory/<REPO_KEY> <DISTRIBUTION> <COMPONENTS>" | sudo tee /etc/apt/sources.list.d/artifactory.list
-# Add your CA Certificates here or /etc/ssl/certs/
-# COPY ca.crt /usr/local/share/ca-certificates/ca.crt
-# RUN update-ca-certificates
+##########################################
+# ENVIRONMENT VARIABLES
+##########################################
+ENV USERNAME=${USERNAME} \
+    USER_HOME=/home/${USERNAME}
 
-# Install required packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash \
-    openssh-server \
-    python3 \
-    python3-pip \
-    python3-venv \
-    sudo \
-    curl \
-    gnupg \
-    libstdc++6 \
-    util-linux \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+##########################################
+# USER CREATION
+##########################################
+RUN groupadd --gid ${USER_GID} ${USERNAME} 2>/dev/null || true \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash ${USERNAME} \
+    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
+    && chmod 0440 /etc/sudoers.d/${USERNAME}
 
-# Add user and give sudo without password
-RUN adduser --disabled-password --gecos "" ${USERNAME} \
- && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
- && echo "${USERNAME}:nopassword" | chpasswd
+##########################################
+# APPLICATION FILES + ENTRYPOINT
+##########################################
+COPY --chown=${USERNAME}:${USERNAME} ./application ${USER_HOME}/application/
+COPY --chown=${USERNAME}:${USERNAME} prometheus.yaml ${USER_HOME}/prometheus.yaml
+COPY --chown=${USERNAME}:${USERNAME} entrypoint.sh ${USER_HOME}/.local/bin/entrypoint.sh
+RUN chmod +x ${USER_HOME}/.local/bin/entrypoint.sh
 
-# Fix shell in /etc/passwd
-RUN usermod -s /bin/bash ${USERNAME}
-
-# Setup home directory, bash config, and application bin
-RUN mkdir -p /home/${USERNAME}/.ssh /home/${USERNAME}/application/bin \
- && touch /home/${USERNAME}/.bashrc \
- && echo "export PATH=/home/${USERNAME}/application/bin:/home/${USERNAME}/.local/bin:\$PATH" >> /home/${USERNAME}/.bashrc \
- && chmod 700 /home/${USERNAME}/.ssh \
- && chmod 644 /home/${USERNAME}/.bashrc \
- && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} \
- && echo 'if [ -f ~/.bashrc ]; then . ~/.bashrc; fi' >> /home/${USERNAME}/.bash_profile
-
-# SSH host keys directory
-RUN mkdir -p /home/${USERNAME}/ssh_keys \
- && chmod 700 /home/${USERNAME}/ssh_keys \
- && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/ssh_keys
-
-# SSH config under .ssh
-RUN mkdir -p /home/${USERNAME}/.ssh \
- && cat <<EOF > /home/${USERNAME}/.ssh/sshd_config
-PasswordAuthentication no
-PermitRootLogin no
-PubkeyAuthentication yes
-Port 2222
-HostKey /home/${USERNAME}/ssh_keys/ssh_host_rsa_key
-HostKey /home/${USERNAME}/ssh_keys/ssh_host_ecdsa_key
-HostKey /home/${USERNAME}/ssh_keys/ssh_host_ed25519_key
-Subsystem sftp /usr/lib/openssh/sftp-server
-EOF
-
-RUN chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.ssh/sshd_config \
- && chmod 600 /home/${USERNAME}/.ssh/sshd_config
-
-# Expose SSH
-EXPOSE 2222
-
-###### PROMETHEUS SECTION #######
-
-# Set Prometheus and Node Exporter versions
-ENV PROMETHEUS_VERSION=3.5.1
-ENV NODE_EXPORTER_VERSION=1.10.2
-
-# Create directories for Prometheus and Node Exporter
-RUN mkdir -p /opt/prometheus /opt/node_exporter
-
-# Download and extract Prometheus (v3.x)
-RUN curl -L -o /tmp/prometheus.tar.gz \
-      https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz \
- && tar xzf /tmp/prometheus.tar.gz -C /tmp \
- && cp /tmp/*prometheus-${PROMETHEUS_VERSION}.linux-amd64/prometheus /opt/prometheus/ \
- && cp /tmp/*prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool /opt/prometheus/ \
- && mkdir -p /opt/prometheus/consoles /opt/prometheus/console_libraries \
- && cp -r /tmp/*prometheus-${PROMETHEUS_VERSION}.linux-amd64/consoles/* /opt/prometheus/consoles/ 2>/dev/null || true \
- && cp -r /tmp/*prometheus-${PROMETHEUS_VERSION}.linux-amd64/console_libraries/* /opt/prometheus/console_libraries/ 2>/dev/null || true \
- && rm -rf /tmp/prometheus*
-
-# Download and install Node Exporter
-RUN curl -L -o /tmp/node_exporter.tar.gz \
-      https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz \
- && tar xzf /tmp/node_exporter.tar.gz -C /tmp \
- && mv /tmp/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter /opt/node_exporter/ \
- && rm -rf /tmp/node_exporter*
-
-EXPOSE 9100
-
-# Create Prometheus config/data dirs for non‑root
-RUN mkdir -p /home/${USERNAME}/prometheus/config /home/${USERNAME}/prometheus/data \
- && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/prometheus
-
-# Copy Prometheus config
-COPY prometheus.yaml /home/${USERNAME}/prometheus/config/prometheus.yml
-RUN chown ${USERNAME}:${USERNAME} /home/${USERNAME}/prometheus/config/prometheus.yml
-
-# Simple start scripts
-RUN echo "#!/bin/bash\n/opt/prometheus/prometheus \
-      --config.file=/home/${USERNAME}/prometheus/config/prometheus.yml \
-      --storage.tsdb.path=/home/${USERNAME}/prometheus/data" \
-      > /home/${USERNAME}/application/bin/start-prometheus.sh \
- && echo "#!/bin/bash\n/opt/node_exporter/node_exporter" \
-      > /home/${USERNAME}/application/bin/start-node-exporter.sh \
- && chmod +x /home/${USERNAME}/application/bin/start-prometheus.sh \
- && chmod +x /home/${USERNAME}/application/bin/start-node-exporter.sh \
- && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/application/bin/start-*.sh
-
-###### END PROMETHEUS SECTION #######
-
-# Before switching to USER
-# Add pip config here.
-RUN python3 -m pip install --upgrade pip \
- && python3 -m pip install pipx
-
-
-RUN mkdir -p /home/${USERNAME}/application/bin && \
-    mkdir -p /home/${USERNAME}/application/config
-
-# Copy entrypoint script
-COPY entrypoint.sh /home/${USERNAME}/.local/bin/entrypoint.sh
-COPY ./application /home/${USERNAME}/application
-
-RUN gcc -Wall -Wextra -O2 /home/${USERNAME}/application/src/application.c -o /home/${USERNAME}/application/bin/application
-
-RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
-
-# Switch to normal user
+##########################################
+# SWITCH TO NON-ROOT USER
+##########################################
 USER ${USERNAME}
+WORKDIR ${USER_HOME}
 
-# Install pipx and Ansible
+##########################################
+# PYTHON TOOLS + ANSIBLE
+##########################################
 RUN pipx ensurepath \
- && pipx install ansible \
- && pipx install ansible-core
+    && pipx install ansible \
+    && pipx install ansible-core \
+    && ${USER_HOME}/.local/bin/ansible-galaxy collection install ansible.posix
 
-# Prepare Ansible directories
-RUN mkdir -p /home/${USERNAME}/.ansible/collections /home/${USERNAME}/.ansible/plugins/modules \
- && /home/${USERNAME}/.local/bin/ansible-galaxy collection install ansible.posix
-
-# Set entrypoint
-CMD ["bash", "-c", "/home/$USERNAME/.local/bin/entrypoint.sh"]
+##########################################
+# CONTAINER STARTUP
+##########################################
+CMD ["bash", "-c", "$HOME/.local/bin/entrypoint.sh"]

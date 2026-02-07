@@ -1,0 +1,74 @@
+##########################################
+# BASE IMAGE - Common dependencies + Prometheus
+##########################################
+ARG REGISTRY=docker.io
+FROM $REGISTRY/ubuntu:22.04
+
+##########################################
+# BUILD ARGUMENTS
+##########################################
+
+ARG GITHUB_MIRROR=https://github.com
+ARG PROMETHEUS_VERSION=3.5.1
+ARG NODE_EXPORTER_VERSION=1.10.2
+
+##########################################
+# ENVIRONMENT VARIABLES
+##########################################
+ENV DEBIAN_FRONTEND=noninteractive \
+    PROMETHEUS_VERSION=${PROMETHEUS_VERSION} \
+    NODE_EXPORTER_VERSION=${NODE_EXPORTER_VERSION}
+
+##########################################
+# OPTIONAL: CUSTOM CERTIFICATES & REPOS
+##########################################
+# Uncomment and customize as needed for corporate environments
+# RUN curl -fsSL https://<ARTIFACTORY_URL>/artifactory/api/gpg/key/public | \
+#     gpg --dearmor | tee /usr/share/keyrings/mycompany-artifactory.gpg > /dev/null
+# RUN echo "deb [signed-by=/usr/share/keyrings/mycompany-artifactory.gpg] https://<ARTIFACTORY_URL>/artifactory/<REPO_KEY> <DISTRIBUTION> <COMPONENTS>" | \
+#     tee /etc/apt/sources.list.d/artifactory.list
+# COPY ca.crt /usr/local/share/ca-certificates/ca.crt
+# RUN update-ca-certificates
+
+##########################################
+# SYSTEM PACKAGES + PYTHON UPGRADE
+##########################################
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    openssh-server \
+    python3 \
+    python3-pip \
+    python3-venv \
+    sudo \
+    curl \
+    gnupg \
+    libstdc++6 \
+    util-linux \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m pip install --no-cache-dir --upgrade pip \
+    && python3 -m pip install --no-cache-dir pipx
+
+##########################################
+# PROMETHEUS + NODE EXPORTER INSTALLATION
+##########################################
+RUN mkdir -p /opt/prometheus /opt/node_exporter \
+    && curl -L -o /tmp/prometheus.tar.gz \
+        ${GITHUB_MIRROR}/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz \
+    && tar xzf /tmp/prometheus.tar.gz -C /tmp \
+    && cp /tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64/prometheus /opt/prometheus/ \
+    && cp /tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool /opt/prometheus/ \
+    && mkdir -p /opt/prometheus/consoles /opt/prometheus/console_libraries \
+    && cp -r /tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64/consoles/* /opt/prometheus/consoles/ 2>/dev/null || true \
+    && cp -r /tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64/console_libraries/* /opt/prometheus/console_libraries/ 2>/dev/null || true \
+    && rm -rf /tmp/prometheus* \
+    && curl -L -o /tmp/node_exporter.tar.gz \
+        ${GITHUB_MIRROR}/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz \
+    && tar xzf /tmp/node_exporter.tar.gz -C /tmp \
+    && mv /tmp/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64/node_exporter /opt/node_exporter/ \
+    && rm -rf /tmp/node_exporter*
+
+##########################################
+# EXPOSE PORTS
+##########################################
+EXPOSE 2222 9090 9100
