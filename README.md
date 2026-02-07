@@ -1,8 +1,8 @@
-# Service Manager - Docker-based Development Environment
+## Service Manager - Docker-based Development Environment
 
 A complete Docker-based infrastructure for managing multi-node development environments with Ansible automation, Prometheus monitoring, and Grafana visualization.
 
-## Table of Contents
+### Table of Contents
 
 - [Overview](#overview)
 - [Features](#features)
@@ -22,34 +22,26 @@ A complete Docker-based infrastructure for managing multi-node development envir
 
 ---
 
-## Overview
+### Overview
 
-Service Manager provides a complete local development environment that simulates a production cluster using Docker containers. Each node runs SSH, Prometheus, Node Exporter, and your custom application, fully configurable via Ansible.
+Service Manager provides a complete local development environment that simulates a production cluster using Docker containers. Each node runs SSH, Prometheus, Node Exporter, and a custom application, fully configurable via Ansible.
 
-**Architecture:**
-- **Base Image**: Ubuntu 22.04 with Prometheus & Node Exporter pre-installed
-- **Node Image**: Application runtime with SSH, Ansible support, and non-root user
-- **Monitoring Stack**: Centralized Prometheus + Grafana for metrics visualization
-- **Automation**: Ansible playbooks for configuration management
+### Features
 
----
-
-## Features
-
-- **Multi-stage Docker builds** with aggressive layer caching  
-- **Non-root container execution** for security  
-- **SSH access** to all nodes via key-based authentication  
-- **Prometheus metrics** collection from all nodes  
-- **Grafana dashboards** for visualization  
-- **Ansible automation** for configuration deployment  
+- **Multi-stage Docker builds** to reduce overhead of expanding layer caching
+- **Non-root container execution** for security, defaulting to UID:GID - 1000:1000
+- **SSH access** to all nodes via key-based authentication
+- **Prometheus metrics** collection from all nodes via exposed ports and operators
+- **Grafana dashboards** for visualization using node exporter
+- **Ansible automation** for configuration deployment of metrics and application
 - **Environment activation** script for easy CLI access  
 - **Flexible configuration** via environment variables or CLI flags  
 
 ---
 
-## Prerequisites
+### Prerequisites
 
-### Quick Install (Ubuntu/Debian)
+#### Quick Install (Ubuntu/Debian)
 
 ```bash
 # Update system
@@ -65,37 +57,48 @@ mkdir -p ~/.docker/cli-plugins
 curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
   -o ~/.docker/cli-plugins/docker-compose
 chmod +x ~/.docker/cli-plugins/docker-compose
-
-# Install Python and pip
-sudo apt install python3-pip python3.8-venv -y
-
-# Verify installations
-docker --version
-docker compose version
-python3 --version
 ```
 
 ---
 
-## Quick Start
+### Quick Start
 
-### 1. Clone Repository
+Firstly, clone the repository down into a development directory. 
 
 ```bash
-git clone <repository-url>
-cd service-manager
+git clone git@github.com:parkermmr/Service-Manager.git
+
+# Move into the created directory
+cd Service-Manager
 ```
 
-### 2. Generate SSH Keys
+You will need to next generate the key which will be used to autheticate into the node servers via SSH. This can be done by:
 
 ```bash
-# Generate SSH key for Ansible
+# Generate the key which will be used to auth into the node servers.
+#
+# The best type of key for this is 'ed25519' as it is the most modern.
+# Some new versions of alpine (which is the distribution being used) do
+# not support keys like rsa by default for ssh.
+#
+# Additionally, it is reccomended to not set a passphrase for the key,
+# as the key is just used for a virtual development environment. This will
+# make it easier when interfacing with ansible via ssh. To skip entering
+# a key passphrase, just click 'Enter' when the prompt comes up.
 ssh-keygen -t ed25519 -f ~/.ssh/ansible -C "ansible"
 
-# Press Enter when prompted for passphrase (no passphrase recommended for dev)
+# Expected Output:
+#
+# Enter same passphrase again: 
+# Your identification has been saved in /home/<username>/.ssh/ansible
+# Your public key has been saved in /home/username>/.ssh/ansible.pub
+# The key fingerprint is:
+# SHA256:D//dHVLYZQck1FA1qvR8+WXCpsBK2g8/5D0rMcH3Ryg ansible
+# The key's randomart image is:
+# ...
 ```
 
-### 3. Activate Environment
+To aid in setup a script has been created for this project to create a `virtual environment` like feel for execution. This gives access to multiple commands specified in detail further down.
 
 ```bash
 # Source the activation script
@@ -104,7 +107,7 @@ source ./bin/activate.sh
 # Your prompt should now show: (service-manager)
 ```
 
-### 4. Build Images
+Using one of the exported commands you can build all the images required for the project using the default variables as specified below.
 
 ```bash
 # Build all Docker images
@@ -114,7 +117,7 @@ build all
 build --registry docker.io --push-registry localhost all
 ```
 
-### 5. Deploy Cluster
+The the deploy command is another command added by the virtual environment which manages the deployment of all the services including the nodes and metrics, if you wish to select a specific item to deploy. You can select those sevices by changing `all` to either `monitoring` or `nodes`.
 
 ```bash
 # Deploy all nodes and monitoring
@@ -124,7 +127,7 @@ deploy all
 deploy status
 ```
 
-### 6. Access Nodes
+Using the below commands you can verify that you have access to all three nodes. It is important here that you add these hosts to your `~/.ssh/known_hosts` file so when you run ansible; playbook deployment does not fail.
 
 ```bash
 # SSH into any node
@@ -137,14 +140,14 @@ cd ansible
 ansible all -m ping
 ```
 
-### 7. Access Monitoring
+If you have deployed the monitoring stack with the nodes you can access the prometheus and grafana instances by utilizing the links below. If you are developing remotely via VSCode these ports should be automatically forwarded.
 
 - **Prometheus**: http://localhost:9090
 - **Grafana**: http://localhost:3000 (admin/admin)
 
 ---
 
-## Project Structure
+### Project Structure
 
 ```
 service-manager/
@@ -188,9 +191,9 @@ service-manager/
 
 ---
 
-## Usage
+### Usage
 
-### Building Images
+#### Building Images
 
 The build system uses a multi-stage approach with two images:
 
@@ -251,7 +254,7 @@ vim .env
 build all
 ```
 
-### Deploying Nodes
+#### Deploying Nodes
 
 ```bash
 # Deploy everything (nodes + monitoring)
@@ -273,7 +276,7 @@ deploy logs node-1
 deploy stop-all
 ```
 
-### Managing Services
+#### Managing Services
 
 ```bash
 # Clean up containers
@@ -297,15 +300,12 @@ clean prune
 #### Setup Python Virtual Environment
 
 ```bash
-# Create virtual environment
-python3.8 -m venv .venv
+# Install pipx for virtual environment management
+pip install pipx
 
-# Activate it
-source .venv/bin/activate
 
-# Install Ansible
-pip install --upgrade pip
-pip install ansible
+# Install all base packages, including ansible and ansible-core
+pipx install ansible-core ansible
 
 # Verify
 ansible --version
@@ -332,35 +332,24 @@ ansible-playbook playbooks/status.yaml
 ansible-playbook playbooks/stop.yaml
 
 # Or use Make shortcuts
-make deploy
-make status
-make stop
+make 
+  deploy    # Deploys all services including metrics
+  status    # Checks the status of all deployments
+  metrics   # Exclusively deploys metrics using tags
+  app       # Exclusively deploys application using tags
+  restart   # Restarts the metrics servers
+  stop      # Stops all running services
+  ping      # Checks if the node servers are running
+  clean     # Stops all running services and deletes node exporter and prometheus data
 ```
 
-#### Ansible Inventory
+---
 
-**Hosts** (`inventory/hosts.yaml`):
+### Configuration
 
-```yaml
-all:
-  children:
-    nodes:
-      hosts:
-        node-1:
-          ansible_host: localhost
-          ansible_port: 2223
-          node_id: 1
-        node-2:
-          ansible_host: localhost
-          ansible_port: 2224
-          node_id: 2
-        node-3:
-          ansible_host: localhost
-          ansible_port: 2225
-          node_id: 3
-```
+#### SSH Configuration 
 
-**SSH Configuration** (`~/.ssh/config`):
+You can setup configurations for each nodes using a host alias by adding these lines to your ssh config (`~/.ssh/config`):
 
 ```
 Host node-1
@@ -382,11 +371,7 @@ Host node-3
     IdentityFile ~/.ssh/ansible
 ```
 
----
-
-## Configuration
-
-### Environment Variables
+#### Environment Variables
 
 Create a `.env` file in the project root:
 
@@ -409,7 +394,7 @@ PROMETHEUS_VERSION=3.5.1
 NODE_EXPORTER_VERSION=1.10.2
 ```
 
-### Node Configuration
+#### Node Configuration
 
 Each node can be configured individually via `ansible/inventory/host_vars/`:
 
@@ -427,7 +412,7 @@ hostname: node-2
 application_run_interval: 5
 ```
 
-### Application Configuration Template
+#### Application Configuration Template
 
 The application config is generated from `ansible/playbooks/templates/application-config.j2`:
 
@@ -440,9 +425,9 @@ APPLICATION_DATA_FILE           {{ app_dir }}/run/application.data
 
 ---
 
-## Monitoring
+### Monitoring
 
-### Prometheus
+#### Prometheus
 
 **Access**: http://localhost:9090
 
@@ -466,7 +451,7 @@ APPLICATION_DATA_FILE           {{ app_dir }}/run/application.data
 (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100
 ```
 
-### Grafana
+#### Grafana
 
 **Access**: http://localhost:3000  
 **Default Credentials**: admin/admin
@@ -481,7 +466,7 @@ APPLICATION_DATA_FILE           {{ app_dir }}/run/application.data
    - Dashboard ID: `1860` (Node Exporter Full)
    - Or upload: `prometheus/dashboards/node-exporter-full.json`
 
-### Alert Rules
+#### Alert Rules
 
 Alert rules are defined in `prometheus/alerts.yaml`:
 
@@ -489,76 +474,6 @@ Alert rules are defined in `prometheus/alerts.yaml`:
 - **HighCpuUsage**: CPU > 80% for 5+ minutes
 - **HighMemoryUsage**: Memory > 85% for 5+ minutes
 - **HighDiskUsage**: Disk > 85% for 5+ minutes
-
----
-
-## Advanced Usage
-
-### Custom Application Deployment
-
-1. **Add your application source** to `application/src/`
-
-2. **Update entrypoint.sh** compilation section:
-```bash
-if [ -f "$APP_SRC" ]; then
-    echo "[entrypoint] Compiling application..."
-    gcc -Wall -Wextra -O2 "$APP_SRC" -o "$APP_BIN"
-    chmod +x "$APP_BIN"
-fi
-```
-
-3. **Deploy configuration** via Ansible:
-```bash
-cd ansible
-ansible-playbook playbooks/site.yaml --tags application
-```
-
-### Multi-Registry Workflow
-
-```bash
-# Build from Docker Hub, tag locally
-build --registry docker.io --push-registry localhost all
-
-# Build locally, push to private registry
-build --registry localhost --push-registry myregistry.com --push all
-
-# Pull from private, push to Docker Hub
-build --registry myregistry.com --push-registry docker.io/myuser --push all
-```
-
-### Scaling Nodes
-
-1. **Update** `deployments/deployment.yaml`:
-```yaml
-node-4:
-  image: ${REGISTRY:-localhost}/node-generic:${VERSION:-v1.0.0}
-  container_name: node-4
-  hostname: node-4
-  ports:
-    - "2226:2222"
-    - "9104:9100"
-  # ... rest of config
-```
-
-2. **Add to inventory** (`ansible/inventory/hosts.yaml`):
-```yaml
-node-4:
-  ansible_host: localhost
-  ansible_port: 2226
-  node_id: 4
-```
-
-3. **Create host vars** (`ansible/inventory/host_vars/node-4.yaml`):
-```yaml
----
-hostname: node-4
-application_run_interval: 3
-```
-
-4. **Deploy**:
-```bash
-deploy nodes
-```
 
 ---
 
@@ -2169,10 +2084,3 @@ sudo service ssh restart         # Restart SSH
 hostname -I                      # Get WSL IP
 sudo systemctl enable ssh        # Auto-start SSH
 ```
-
-**Next Steps:**
-- Set up your development environment in WSL
-- Configure git in WSL
-- Install Docker in WSL
-- Clone your projects to `/home/youruser/`
-
