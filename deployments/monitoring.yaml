@@ -4,8 +4,6 @@
 # Deploy Prometheus and Grafana for cluster monitoring
 # Usage: docker compose -f docker/monitoring.yaml up -d
 
-version: '3.8'
-
 services:
   ##########################################
   # PROMETHEUS

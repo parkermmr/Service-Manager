@@ -3,9 +3,6 @@
 ##########################################
 # Deploy multiple application nodes
 # Usage: docker compose -f docker/deployment.yaml up -d
-
-version: '3.8'
-
 services:
   ##########################################
   # NODE 1
