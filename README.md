@@ -49,13 +49,6 @@ Service Manager provides a complete local development environment that simulates
 
 ## Prerequisites
 
-### Required Software
-
-- **Docker** (v20.10+)
-- **Docker Compose** (v2.0+)
-- **Python 3.8+** (for Ansible)
-- **SSH** client
-
 ### Quick Install (Ubuntu/Debian)
 
 ```bash
@@ -747,17 +740,6 @@ The `0.0.0.0` address is special - it tells the network interface to listen on *
 - Any other IPs your computer has
 
 This is what makes the port forward work - traffic coming to ANY IP on port 2222 gets routed to WSL.
-
----
-
-### Prerequisites for WSL Setup
-
-Before starting, ensure you have:
-
-- **Windows 10 version 2004+** or **Windows 11**
-- **Administrator access** to PowerShell
-- **Virtualization enabled** in BIOS (for WSL 2)
-- **Internet connection** for downloading packages
 
 ---
 
