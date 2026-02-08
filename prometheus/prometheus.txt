@@ -1,0 +1,115 @@
+Use htpasswd or the promtool to create a bcrypt hash:
+
+# Using htpasswd (from apache2-utils package)
+htpasswd -nBC 10 "" | tr -d ':\n'
+
+# Or using promtool (comes with Prometheus)
+promtool hash-password
+
+
+Enter your desired password when prompted. You’ll get a bcrypt hash like:
+
+$2y$10$X...hash...here
+
+Modify /etc/node_exporter/web-config.yml to include basic auth:
+
+tls_server_config:
+  cert_file: /etc/prometheus/certs/node_exporter.crt
+  key_file: /etc/prometheus/certs/node_exporter.key
+  client_auth_type: RequireAndVerifyClientCert
+  client_ca_file: /etc/prometheus/certs/ca.crt
+  min_version: TLS12
+
+basic_auth_users:
+  prometheus: $2y$10$X...your-bcrypt-hash...here
+  # You can add multiple users:
+  # admin: $2y$10$Y...another-hash...here
+
+
+Important: Ensure this file has restricted permissions:
+
+chmod 600 /etc/node_exporter/web-config.yml
+chown node_exporter:node_exporter /etc/node_exporter/web-config.yml
+
+sudo systemctl restart node_exporter
+
+
+Updated Prometheus Configuration
+Modify /etc/prometheus/prometheus.yml to include basic auth credentials:
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'node_exporter'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      cert_file: /etc/prometheus/certs/prometheus.crt
+      key_file: /etc/prometheus/certs/prometheus.key
+      insecure_skip_verify: false
+    basic_auth:
+      username: prometheus
+      password: your-actual-password-here
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          instance: 'node1'
+
+Instead of putting the password directly in the config, use a separate file:
+
+# /etc/prometheus/prometheus.yml
+scrape_configs:
+  - job_name: 'node_exporter'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      cert_file: /etc/prometheus/certs/prometheus.crt
+      key_file: /etc/prometheus/certs/prometheus.key
+    basic_auth:
+      username: prometheus
+      password_file: /etc/prometheus/secrets/node_exporter_password
+    static_configs:
+      - targets: ['localhost:9100']
+
+
+Create the password file:
+
+mkdir -p /etc/prometheus/secrets
+echo 'your-actual-password-here' > /etc/prometheus/secrets/node_exporter_password
+chmod 600 /etc/prometheus/secrets/node_exporter_password
+chown prometheus:prometheus /etc/prometheus/secrets/node_exporter_password
+
+sudo systemctl restart prometheus
+
+
+Verification
+Test with both mTLS and basic auth:
+
+# This should work (both cert and password)
+curl --cacert /etc/prometheus/certs/ca.crt \
+     --cert /etc/prometheus/certs/prometheus.crt \
+     --key /etc/prometheus/certs/prometheus.key \
+     -u prometheus:your-password \
+     https://localhost:9100/metrics
+
+# This should fail (missing password)
+curl --cacert /etc/prometheus/certs/ca.crt \
+     --cert /etc/prometheus/certs/prometheus.crt \
+     --key /etc/prometheus/certs/prometheus.key \
+     https://localhost:9100/metrics
+
+# This should fail (missing client cert)
+curl --cacert /etc/prometheus/certs/ca.crt \
+     -u prometheus:your-password \
+     https://localhost:9100/metrics
+
+
+Security Considerations
+With this configuration:
+	∙	mTLS ensures both parties authenticate using certificates
+	∙	Basic Auth adds an additional password layer
+	∙	Both credentials must be valid for access
+	∙	Communication is encrypted via TLS
+	∙	Passwords are stored as bcrypt hashes (not plaintext)
+This dual-authentication approach provides strong security, requiring an attacker to compromise both the certificates AND the password to gain access.​​​​​​​​​​​​​​​​
