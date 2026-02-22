@@ -9,11 +9,19 @@
     - "{{ prometheus_data_dir }}"
     - "{{ prometheus_log_dir }}"
     - "{{ node_exporter_log_dir }}"
+    - "{{ process_exporter_log_dir }}"
+    - "{{ process_exporter_config_dir }}"
 
 - name: Create Prometheus configuration from template
   template:
     src: prometheus.yml.j2
     dest: "{{ prometheus_config }}"
+    mode: '0644'
+
+- name: Create Process Exporter configuration from template
+  template:
+    src: process-exporter.yml.j2
+    dest: "{{ process_exporter_config }}"
     mode: '0644'
 
 - name: Create Prometheus start script
@@ -23,7 +31,12 @@
       #!/bin/bash
       mkdir -p "{{ prometheus_log_dir }}"
       while true; do
-          "{{ prometheus_bin }}" --config.file="{{ prometheus_config }}" --storage.tsdb.path="{{ prometheus_data_dir }}"
+          "{{ prometheus_bin }}" \
+              --config.file="{{ prometheus_config }}" \
+              --storage.tsdb.path="{{ prometheus_data_dir }}" \
+              --web.listen-address=0.0.0.0:9090 \
+              --web.console.templates="{{ prometheus_config_dir }}/consoles" \
+              --web.console.libraries="{{ prometheus_config_dir }}/console_libraries"
           echo "Prometheus exited unexpectedly. Restarting in 5s..."
           sleep 5
       done
@@ -35,8 +48,23 @@
     content: |
       #!/bin/bash
       while true; do
-          "{{ node_exporter_bin }}"
+          "{{ node_exporter_bin }}" \
+              --web.listen-address=127.0.0.1:9100
           echo "Node Exporter exited unexpectedly. Restarting in 5s..."
+          sleep 5
+      done
+    mode: '0755'
+
+- name: Create Process Exporter start script
+  copy:
+    dest: "{{ app_dir }}/bin/start-process-exporter.sh"
+    content: |
+      #!/bin/bash
+      while true; do
+          "{{ process_exporter_bin }}" \
+              --config.path="{{ process_exporter_config }}" \
+              --web.listen-address=127.0.0.1:9256
+          echo "Process Exporter exited unexpectedly. Restarting in 5s..."
           sleep 5
       done
     mode: '0755'
@@ -53,11 +81,18 @@
   changed_when: false
   failed_when: false
 
+- name: Check if Process Exporter port is listening
+  shell: "ss -tuln | grep ':9256 ' > /dev/null 2>&1 && echo 'running' || echo 'stopped'"
+  register: process_exporter_status
+  changed_when: false
+  failed_when: false
+
 - name: Display current status
   debug:
     msg:
-      - "Prometheus currently: {{ prometheus_status.stdout }}"
-      - "Node Exporter currently: {{ node_exporter_status.stdout }}"
+      - "Prometheus currently:        {{ prometheus_status.stdout }}"
+      - "Node Exporter currently:     {{ node_exporter_status.stdout }}"
+      - "Process Exporter currently:  {{ process_exporter_status.stdout }}"
 
 - name: Start Prometheus in background
   shell: "nohup {{ app_dir }}/bin/start-prometheus.sh > {{ prometheus_log_dir }}/prometheus.log 2>&1 &"
@@ -71,20 +106,35 @@
     executable: /bin/bash
   when: node_exporter_status.stdout == "stopped"
 
+- name: Start Process Exporter in background
+  shell: "nohup {{ app_dir }}/bin/start-process-exporter.sh > {{ process_exporter_log_dir }}/process_exporter.log 2>&1 &"
+  args:
+    executable: /bin/bash
+  when: process_exporter_status.stdout == "stopped"
+
 - name: Wait for services to initialize
   pause:
     seconds: 5
-  when: prometheus_status.stdout == "stopped" or node_exporter_status.stdout == "stopped"
+  when: >
+    prometheus_status.stdout == "stopped" or
+    node_exporter_status.stdout == "stopped" or
+    process_exporter_status.stdout == "stopped"
 
-- name: Verify Prometheus is responding (inside container)
+- name: Verify Prometheus is responding
   shell: "curl -sf http://localhost:9090/-/healthy > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'"
   register: prometheus_health
   changed_when: false
   failed_when: false
 
-- name: Verify Node Exporter is responding (inside container)
+- name: Verify Node Exporter is responding
   shell: "curl -sf http://localhost:9100/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'"
   register: node_exporter_health
+  changed_when: false
+  failed_when: false
+
+- name: Verify Process Exporter is responding
+  shell: "curl -sf http://localhost:9256/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'"
+  register: process_exporter_health
   changed_when: false
   failed_when: false
 
@@ -102,11 +152,19 @@
   changed_when: false
   failed_when: false
 
+- name: Show Process Exporter logs if failed
+  shell: "tail -30 {{ process_exporter_log_dir }}/process_exporter.log 2>/dev/null || echo 'No log file found'"
+  when: process_exporter_health.stdout != "OK"
+  register: pe_logs
+  changed_when: false
+  failed_when: false
+
 - name: Display health status
   debug:
     msg:
-      - "{{ inventory_hostname }} - Prometheus: {{ 'RUNNING' if prometheus_health.stdout == 'OK' else 'FAILED' }}"
-      - "{{ inventory_hostname }} - Node Exporter: {{ 'RUNNING' if node_exporter_health.stdout == 'OK' else 'FAILED' }}"
+      - "{{ inventory_hostname }} - Prometheus:       {{ 'RUNNING' if prometheus_health.stdout == 'OK' else 'FAILED' }}"
+      - "{{ inventory_hostname }} - Node Exporter:    {{ 'RUNNING' if node_exporter_health.stdout == 'OK' else 'FAILED' }}"
+      - "{{ inventory_hostname }} - Process Exporter: {{ 'RUNNING' if process_exporter_health.stdout == 'OK' else 'FAILED' }}"
 
 - name: Display Prometheus logs if failed
   debug:
@@ -117,3 +175,8 @@
   debug:
     var: ne_logs.stdout_lines
   when: node_exporter_health.stdout != "OK" and ne_logs.stdout is defined and ne_logs.stdout != "No log file found"
+
+- name: Display Process Exporter logs if failed
+  debug:
+    var: pe_logs.stdout_lines
+  when: process_exporter_health.stdout != "OK" and pe_logs.stdout is defined and pe_logs.stdout != "No log file found"

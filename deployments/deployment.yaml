@@ -2,75 +2,70 @@
 # DOCKER COMPOSE - NODE DEPLOYMENT
 ##########################################
 # Deploy multiple application nodes
-# Usage: docker compose -f docker/deployment.yaml up -d
+# Usage: docker compose -f deployments/deployment.yaml up -d
+#
+# Set IMAGE_TAG to match your built image, e.g:
+#   IMAGE_TAG=v1.0.0                        (base)
+#   IMAGE_TAG=v1.0.0-ansible                (with Ansible)
+#   IMAGE_TAG=v1.0.0-prometheus             (with Prometheus)
+#   IMAGE_TAG=v1.0.0-ansible-prometheus     (with both)
 services:
   ##########################################
   # NODE 1
   ##########################################
   node-1:
-    image: ${REGISTRY:-localhost}/node-generic:${VERSION:-v1.0.0}
+    image: ${REGISTRY:-localhost}/node:${IMAGE_TAG:-v1.0.0}
     container_name: node-1
     hostname: node-1
     restart: unless-stopped
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     ports:
-      - "2223:2222"  # SSH
-      - "9101:9100"  # Node Exporter
+      - "2223:2222"
+      - "9091:9090"
     volumes:
       - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
-      - node-1-prometheus:/home/${USERNAME:-somebody}/prometheus/data
     networks:
       - monitoring
     environment:
-      - USERNAME=${USERNAME:-somebody}
+      - USER=${USER:-somebody}
 
   ##########################################
   # NODE 2
   ##########################################
   node-2:
-    image: ${REGISTRY:-localhost}/node-generic:${VERSION:-v1.0.0}
+    image: ${REGISTRY:-localhost}/node:${IMAGE_TAG:-v1.0.0}
     container_name: node-2
     hostname: node-2
     restart: unless-stopped
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     ports:
-      - "2224:2222"  # SSH
-      - "9102:9100"  # Node Exporter
+      - "2224:2222"
+      - "9092:9090"
     volumes:
       - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
-      - node-2-prometheus:/home/${USERNAME:-somebody}/prometheus/data
     networks:
       - monitoring
     environment:
-      - USERNAME=${USERNAME:-somebody}
+      - USER=${USER:-somebody}
 
   ##########################################
   # NODE 3
   ##########################################
   node-3:
-    image: ${REGISTRY:-localhost}/node-generic:${VERSION:-v1.0.0}
+    image: ${REGISTRY:-localhost}/node:${IMAGE_TAG:-v1.0.0}
     container_name: node-3
     hostname: node-3
     restart: unless-stopped
     user: "${USER_UID:-1000}:${USER_GID:-1000}"
     ports:
-      - "2225:2222"  # SSH
-      - "9103:9100"  # Node Exporter
+      - "2225:2222"
+      - "9093:9090"
     volumes:
       - ~/.ssh/ansible.pub:/tmp/ansible.pub:ro
-      - node-3-prometheus:/home/${USERNAME:-somebody}/prometheus/data
     networks:
       - monitoring
     environment:
-      - USERNAME=${USERNAME:-somebody}
-
-##########################################
-# VOLUMES
-##########################################
-volumes:
-  node-1-prometheus:
-  node-2-prometheus:
-  node-3-prometheus:
+      - USER=${USER:-somebody}
 
 ##########################################
 # NETWORKS

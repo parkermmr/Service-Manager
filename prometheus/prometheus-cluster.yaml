@@ -1,8 +1,9 @@
 ##########################################
 # PROMETHEUS CLUSTER CONFIGURATION
 ##########################################
-# This config is used by the central Prometheus instance
-# to scrape metrics from all deployed nodes
+# Central Prometheus - federates from each node's local Prometheus instance.
+# Node exporters and process exporters are bound to 127.0.0.1 inside each
+# container and scraped locally. Only Prometheus port 9090 is exposed.
 
 global:
   scrape_interval: 15s
@@ -40,48 +41,71 @@ scrape_configs:
           instance: 'prometheus-server'
 
   ##########################################
-  # NODE EXPORTER - ALL NODES
+  # NODE FEDERATION
+  # Pulls node_exporter + process_exporter
+  # metrics from each node's local Prometheus
+  # via the /federate endpoint.
   ##########################################
-  - job_name: 'node-exporter'
+  - job_name: 'federate-node-1'
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      match[]:
+        - '{job="node-exporter"}'
+        - '{job="process-exporter"}'
+        - '{job="prometheus"}'
     static_configs:
-      - targets:
-          - 'host.docker.internal:9101'
-        labels:
-          instance: 'node-1'
-          hostname: 'node-1'
-      - targets:
-          - 'host.docker.internal:9102'
-        labels:
-          instance: 'node-2'
-          hostname: 'node-2'
-      - targets:
-          - 'host.docker.internal:9103'
-        labels:
-          instance: 'node-3'
-          hostname: 'node-3'
+      - targets: ['host.docker.internal:9091']
+    relabel_configs:
+      - target_label: instance
+        replacement: 'node-1:9256'
+      - target_label: hostname
+        replacement: 'node-1'
+
+  - job_name: 'federate-node-2'
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      match[]:
+        - '{job="node-exporter"}'
+        - '{job="process-exporter"}'
+        - '{job="prometheus"}'
+    static_configs:
+      - targets: ['host.docker.internal:9092']
+    relabel_configs:
+      - target_label: instance
+        replacement: 'node-2:9256'
+      - target_label: hostname
+        replacement: 'node-2'
+
+  - job_name: 'federate-node-3'
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      match[]:
+        - '{job="node-exporter"}'
+        - '{job="process-exporter"}'
+        - '{job="prometheus"}'
+    static_configs:
+      - targets: ['host.docker.internal:9093']
+    relabel_configs:
+      - target_label: instance
+        replacement: 'node-3:9256'
+      - target_label: hostname
+        replacement: 'node-3'
 
   ##########################################
-  # PROCESS EXPORTER (IF ENABLED)
+  # BLACKBOX EXPORTER (OPTIONAL)
   ##########################################
-  # - job_name: 'process-exporter'
-  #   static_configs:
-  #     - targets:
-  #         - 'host.docker.internal:9256'
-  #       labels:
-  #         instance: 'node-1'
-
-  ##########################################
-  # BLACKBOX EXPORTER (IF ENABLED)
-  ##########################################
-  # - job_name: 'blackbox'
+  # - job_name: 'blackbox-ssh'
   #   metrics_path: /probe
   #   params:
   #     module: [tcp_connect]
   #   static_configs:
   #     - targets:
-  #         - 'node-1:2222'
-  #         - 'node-2:2222'
-  #         - 'node-3:2222'
+  #         - 'host.docker.internal:2223'
+  #         - 'host.docker.internal:2224'
+  #         - 'host.docker.internal:2225'
   #   relabel_configs:
   #     - source_labels: [__address__]
   #       target_label: __param_target

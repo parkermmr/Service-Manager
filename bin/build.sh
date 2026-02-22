@@ -2,12 +2,6 @@
 set -e
 
 ##########################################
-# DOCKER BUILD SCRIPT
-##########################################
-# This script builds and optionally pushes multi-stage Docker images
-# Supports .env file, CLI args, and environment variables
-
-##########################################
 # SCRIPT DIRECTORY DETECTION
 ##########################################
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,12 +13,12 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 REGISTRY="${REGISTRY:-docker.io}"
 PUSH_REGISTRY="${PUSH_REGISTRY:-localhost}"
 VERSION="${VERSION:-v1.0.0}"
-USERNAME="${USERNAME:-somebody}"
+USER="${USER:-somebody}"
 USER_UID="${USER_UID:-1000}"
 USER_GID="${USER_GID:-1000}"
 GITHUB_MIRROR="${GITHUB_MIRROR:-https://github.com}"
-PROMETHEUS_VERSION="${PROMETHEUS_VERSION:-3.5.1}"
-NODE_EXPORTER_VERSION="${NODE_EXPORTER_VERSION:-1.10.2}"
+INSTALL_ANSIBLE="${INSTALL_ANSIBLE:-false}"
+INSTALL_PROMETHEUS="${INSTALL_PROMETHEUS:-false}"
 PUSH=false
 
 ##########################################
@@ -57,7 +51,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --user)
-            USERNAME="$2"
+            USER="$2"
             shift 2
             ;;
         --uid)
@@ -72,13 +66,13 @@ while [[ $# -gt 0 ]]; do
             GITHUB_MIRROR="$2"
             shift 2
             ;;
-        --prometheus-version)
-            PROMETHEUS_VERSION="$2"
-            shift 2
+        --install-ansible)
+            INSTALL_ANSIBLE=true
+            shift
             ;;
-        --node-exporter-version)
-            NODE_EXPORTER_VERSION="$2"
-            shift 2
+        --install-prometheus)
+            INSTALL_PROMETHEUS=true
+            shift
             ;;
         --push)
             PUSH=true
@@ -86,42 +80,45 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             cat <<EOF
-Usage: $0 [OPTIONS] [COMMAND]
-
-Commands:
-  base        Build only base image
-  node        Build only node image
-  all         Build all images (default)
+Usage: $0 [OPTIONS]
 
 Options:
   --registry REGISTRY          Registry for pulling ubuntu base (default: docker.io)
   --push-registry REGISTRY     Registry for tagging and pushing images (default: localhost)
   --version VERSION            Image version tag (default: v1.0.0)
-  --user USERNAME              Non-root username (default: somebody)
+  --user USER                  Non-root username (default: somebody)
   --uid UID                    User UID (default: 1000)
   --gid GID                    User GID (default: 1000)
   --github-mirror URL          GitHub mirror URL (default: https://github.com)
-  --prometheus-version VER     Prometheus version (default: 3.5.1)
-  --node-exporter-version VER  Node Exporter version (default: 1.10.2)
-  --push                       Push images after building
+  --install-ansible            Bake Ansible into the image at build time
+  --install-prometheus         Bake Prometheus into the image at build time
+  --push                       Push image after building
   -h, --help                   Show this help message
 
 Examples:
-  # Build locally (images tagged as localhost/*)
-  $0 all
+  # Base image only
+  $0
+  # → localhost/node:v1.0.0
 
-  # Build from docker.io, tag as localhost/* (default behavior)
-  $0 --registry docker.io all
+  # With Ansible baked in
+  $0 --install-ansible
+  # → localhost/node:v1.0.0-ansible
 
-  # Build and tag for Docker Hub
-  $0 --push-registry docker.io/myuser all
+  # With Prometheus baked in
+  $0 --install-prometheus
+  # → localhost/node:v1.0.0-prometheus
 
-  # Build from custom registry, push to Docker Hub
-  $0 --registry myregistry.com --push-registry docker.io/myuser --push all
+  # With both plugins baked in
+  $0 --install-ansible --install-prometheus
+  # → localhost/node:v1.0.0-ansible-prometheus
+
+  # Build and push
+  $0 --install-ansible --push-registry docker.io/myuser --push
+  # → docker.io/myuser/node:v1.0.0-ansible
 
 Environment Variables (can also be set in .env file):
-  REGISTRY, PUSH_REGISTRY, VERSION, USERNAME, USER_UID, USER_GID,
-  GITHUB_MIRROR, PROMETHEUS_VERSION, NODE_EXPORTER_VERSION
+  REGISTRY, PUSH_REGISTRY, VERSION, USER, USER_UID, USER_GID,
+  GITHUB_MIRROR, INSTALL_ANSIBLE, INSTALL_PROMETHEUS
 EOF
             exit 0
             ;;
@@ -139,104 +136,58 @@ set -- "${POSITIONAL_ARGS[@]}"
 ##########################################
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
+
+##########################################
+# BUILD PLUGIN TAG SUFFIX
+##########################################
+PLUGIN_SUFFIX=""
+[ "$INSTALL_ANSIBLE" = "true" ]     && PLUGIN_SUFFIX="${PLUGIN_SUFFIX}-ansible"
+[ "$INSTALL_PROMETHEUS" = "true" ]  && PLUGIN_SUFFIX="${PLUGIN_SUFFIX}-prometheus"
+
+IMAGE_TAG="${VERSION}${PLUGIN_SUFFIX}"
+IMAGE_NAME="${PUSH_REGISTRY}/node:${IMAGE_TAG}"
 
 ##########################################
 # DISPLAY CONFIGURATION
 ##########################################
 echo -e "${BLUE}[CONFIG]${NC} Build Configuration:"
-echo "  Project Root:           $PROJECT_ROOT"
-echo "  Source Registry:        $REGISTRY (ubuntu base image)"
-echo "  Target Registry:        $PUSH_REGISTRY (built images tagged here)"
-echo "  Version:                $VERSION"
-echo "  Username:               $USERNAME"
-echo "  User UID:GID:           $USER_UID:$USER_GID"
-echo "  GitHub Mirror:          $GITHUB_MIRROR"
-echo "  Prometheus Version:     $PROMETHEUS_VERSION"
-echo "  Node Exporter Version:  $NODE_EXPORTER_VERSION"
-echo "  Push Images:            $PUSH"
+echo "  Project Root:       $PROJECT_ROOT"
+echo "  Source Registry:    $REGISTRY"
+echo "  Target Registry:    $PUSH_REGISTRY"
+echo "  Version:            $VERSION"
+echo "  User:               $USER"
+echo "  User UID:GID:       $USER_UID:$USER_GID"
+echo "  GitHub Mirror:      $GITHUB_MIRROR"
+echo "  Install Ansible:    $INSTALL_ANSIBLE"
+echo "  Install Prometheus: $INSTALL_PROMETHEUS"
+echo "  Image Tag:          $IMAGE_TAG"
+echo "  Image Name:         $IMAGE_NAME"
 echo ""
 
 ##########################################
-# BUILD FUNCTIONS
+# BUILD
 ##########################################
-build_base() {
-    local IMAGE_NAME="${PUSH_REGISTRY}/node-base:${VERSION}"
-    
-    echo -e "${BLUE}[BUILD]${NC} Building base image: $IMAGE_NAME"
-    cd "$PROJECT_ROOT"
-    docker build \
-        --file Dockerfile.base \
-        --build-arg REGISTRY="$REGISTRY" \
-        --build-arg GITHUB_MIRROR="$GITHUB_MIRROR" \
-        --build-arg PROMETHEUS_VERSION="$PROMETHEUS_VERSION" \
-        --build-arg NODE_EXPORTER_VERSION="$NODE_EXPORTER_VERSION" \
-        --tag "$IMAGE_NAME" \
-        .
-    echo -e "${GREEN}[DONE]${NC} Base image built: $IMAGE_NAME"
-    
-    if [ "$PUSH" = true ]; then
-        push_image "$IMAGE_NAME"
-    fi
-}
-
-build_node() {
-    local BASE_IMAGE="${PUSH_REGISTRY}/node-base:${VERSION}"
-    local IMAGE_NAME="${PUSH_REGISTRY}/node-generic:${VERSION}"
-    
-    echo -e "${BLUE}[BUILD]${NC} Building node image: $IMAGE_NAME"
-    echo -e "${YELLOW}[INFO]${NC} Using base image: $BASE_IMAGE"
-    
-    cd "$PROJECT_ROOT"
-    docker build \
-        --file Dockerfile.node \
-        --build-arg REGISTRY="$PUSH_REGISTRY" \
-        --build-arg VERSION="$VERSION" \
-        --build-arg BASE_IMAGE="$BASE_IMAGE" \
-        --build-arg USERNAME="$USERNAME" \
-        --build-arg USER_UID="$USER_UID" \
-        --build-arg USER_GID="$USER_GID" \
-        --tag "$IMAGE_NAME" \
-        .
-    echo -e "${GREEN}[DONE]${NC} Node image built: $IMAGE_NAME"
-    
-    if [ "$PUSH" = true ]; then
-        push_image "$IMAGE_NAME"
-    fi
-}
-
-push_image() {
-    local IMAGE="$1"
-    
-    echo -e "${BLUE}[PUSH]${NC} Pushing $IMAGE"
-    docker push "$IMAGE"
-    echo -e "${GREEN}[DONE]${NC} Pushed: $IMAGE"
-}
-
-build_all() {
-    echo -e "${GREEN}[BUILD]${NC} Building all images in sequence..."
-    build_base
-    build_node
-    echo -e "${GREEN}[SUCCESS]${NC} All images built successfully!"
-}
+echo -e "${BLUE}[BUILD]${NC} Building image: $IMAGE_NAME"
+cd "$PROJECT_ROOT"
+docker build \
+    --file Dockerfile \
+    --build-arg REGISTRY="$REGISTRY" \
+    --build-arg USER="$USER" \
+    --build-arg USER_UID="$USER_UID" \
+    --build-arg USER_GID="$USER_GID" \
+    --build-arg GITHUB_MIRROR="$GITHUB_MIRROR" \
+    --build-arg INSTALL_ANSIBLE="$INSTALL_ANSIBLE" \
+    --build-arg INSTALL_PROMETHEUS="$INSTALL_PROMETHEUS" \
+    --tag "$IMAGE_NAME" \
+    .
+echo -e "${GREEN}[DONE]${NC} Image built: $IMAGE_NAME"
 
 ##########################################
-# MAIN EXECUTION
+# PUSH
 ##########################################
-case "${1:-all}" in
-    base)
-        build_base
-        ;;
-    node)
-        build_node
-        ;;
-    all)
-        build_all
-        ;;
-    *)
-        echo "Usage: $0 [OPTIONS] {base|node|all}"
-        echo "Run '$0 --help' for more information"
-        exit 1
-        ;;
-esac
+if [ "$PUSH" = true ]; then
+    echo -e "${BLUE}[PUSH]${NC} Pushing $IMAGE_NAME..."
+    docker push "$IMAGE_NAME"
+    echo -e "${GREEN}[DONE]${NC} Pushed: $IMAGE_NAME"
+fi

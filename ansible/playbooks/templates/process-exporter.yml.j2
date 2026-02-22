@@ -1,0 +1,30 @@
+process_names:
+  # SSH daemon
+  - name: "sshd"
+    cmdline:
+      - 'sshd'
+
+  # Prometheus
+  - name: "prometheus"
+    cmdline:
+      - 'prometheus'
+
+  # Node Exporter
+  - name: "node_exporter"
+    cmdline:
+      - 'node_exporter'
+
+  # Process Exporter itself
+  - name: "process-exporter"
+    cmdline:
+      - 'process-exporter'
+
+  # Application
+  - name: "{{ app_name | default('application') }}"
+    cmdline:
+      - "{{ app_name | default('application') }}"
+
+  # Catch-all for everything else
+  - name: "{{ '{{.Comm}}' }}"
+    cmdline:
+      - '.+'
