@@ -89,6 +89,7 @@ export -f build
 export -f deploy
 export -f clean
 export -f deactivate
+export PATH="$BIN_DIR:$PATH"
 
 ##########################################
 # UPDATE PROMPT
