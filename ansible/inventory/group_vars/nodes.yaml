@@ -2,3 +2,9 @@
 # Node-specific configuration
 metrics_enabled: true
 application_enabled: true
+
+local_certs_dir: /home/parke/.prometheus/certificates
+
+prometheus_scrape_user: prometheus
+prometheus_scrape_password: password
+prometheus_scrape_password_hash: $2b$12$bIc61s6nfgxLmWP0TQAGzu6zftErKfGPofRFC3I.l7o24ePrSeBsK

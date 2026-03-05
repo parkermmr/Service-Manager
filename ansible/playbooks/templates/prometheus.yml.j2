@@ -11,6 +11,16 @@ global:
 scrape_configs:
   # Prometheus self-monitoring
   - job_name: 'prometheus'
+    scheme: https
+    tls_config:
+      ca_file: {{ prometheus_certs_dir }}/ca.crt
+      cert_file: {{ prometheus_certs_dir }}/client.crt
+      key_file: {{ prometheus_certs_dir }}/client.key
+      # Optionally pin the server name if using a shared cert:
+      # server_name: prometheus.local
+    basic_auth:
+      username: '{{ prometheus_scrape_user }}'
+      password: '{{ prometheus_scrape_password }}'
     static_configs:
       - targets: ['localhost:9090']
         labels:
@@ -18,6 +28,14 @@ scrape_configs:
 
   # Node Exporter - system metrics (localhost only)
   - job_name: 'node-exporter'
+    scheme: https
+    tls_config:
+      ca_file: {{ prometheus_certs_dir }}/ca.crt
+      cert_file: {{ prometheus_certs_dir }}/client.crt
+      key_file: {{ prometheus_certs_dir }}/client.key
+    basic_auth:
+      username: '{{ prometheus_scrape_user }}'
+      password: '{{ prometheus_scrape_password }}'
     static_configs:
       - targets: ['localhost:9100']
         labels:
@@ -26,6 +44,14 @@ scrape_configs:
 
   # Process Exporter - process metrics (localhost only)
   - job_name: 'process-exporter'
+    scheme: https
+    tls_config:
+      ca_file: {{ prometheus_certs_dir }}/ca.crt
+      cert_file: {{ prometheus_certs_dir }}/client.crt
+      key_file: {{ prometheus_certs_dir }}/client.key
+    basic_auth:
+      username: '{{ prometheus_scrape_user }}'
+      password: '{{ prometheus_scrape_password }}'
     static_configs:
       - targets: ['localhost:9256']
         labels:

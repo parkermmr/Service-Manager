@@ -18,16 +18,21 @@ prometheus_data_dir: "{{ prometheus_home }}/data"
 prometheus_log_dir: "{{ prometheus_home }}/logs"
 prometheus_bin: "{{ app_home }}/.local/bin/prometheus"
 prometheus_config: "{{ prometheus_config_dir }}/prometheus.yml"
+prometheus_certs_dir: "{{ prometheus_config_dir }}/certs"
+prometheus_web_config: "{{ prometheus_config_dir }}/web-config.yml"
 
 # Node Exporter Paths
 node_exporter_bin: "{{ app_home }}/.local/bin/node_exporter"
+node_exporter_config_dir: "{{ app_home }}/.config/node_exporter"
 node_exporter_log_dir: "{{ app_home }}/.local/share/logs/node_exporter"
+node_exporter_web_config: "{{ node_exporter_config_dir }}/web-config.yml"
 
 # Process Exporter Paths
 process_exporter_bin: "{{ app_home }}/.local/bin/process-exporter"
 process_exporter_config_dir: "{{ app_home }}/.config/process_exporter"
 process_exporter_config: "{{ process_exporter_config_dir }}/config.yaml"
 process_exporter_log_dir: "{{ app_home }}/.local/share/logs/process_exporter"
+process_exporter_web_config: "{{ process_exporter_config_dir }}/web-config.yml"
 
 # Service Management
 use_systemd: false  # Set to true if systemd is available

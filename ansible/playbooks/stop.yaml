@@ -6,16 +6,17 @@
   tasks:
     - name: Stop all running services
       shell: |
-        pkill -f 'prometheus.*--config.file' || true
-        pkill -f 'node_exporter' || true
-        pkill -f '{{ app_bin }}' || true
+        pkill 'prometheus' || true
+        pkill 'node_exporter' || true
+        pkill 'process_exporter' || true
       args:
         executable: /bin/bash
       
     - name: Verify services stopped
       shell: |
-        pgrep -f 'prometheus.*--config.file' && echo "Prometheus still running" || echo "Prometheus stopped"
-        pgrep -f 'node_exporter' && echo "Node Exporter still running" || echo "Node Exporter stopped"
+        pgrep 'prometheus' && echo "Prometheus still running" || echo "Prometheus stopped"
+        pgrep 'node_exporter' && echo "Node Exporter still running" || echo "Node Exporter stopped"
+        pgrep 'process_exporter' && echo "Process Exporter still running" || echo "Process Exporter stopped"
       register: service_status
       changed_when: false
       

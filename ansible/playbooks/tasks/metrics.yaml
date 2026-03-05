@@ -8,7 +8,9 @@
     - "{{ prometheus_config_dir }}"
     - "{{ prometheus_data_dir }}"
     - "{{ prometheus_log_dir }}"
+    - "{{ prometheus_certs_dir }}"
     - "{{ node_exporter_log_dir }}"
+    - "{{ node_exporter_config_dir }}"
     - "{{ process_exporter_log_dir }}"
     - "{{ process_exporter_config_dir }}"
 
@@ -24,6 +26,34 @@
     dest: "{{ process_exporter_config }}"
     mode: '0644'
 
+- name: Create Web Config
+  template:
+    src: web-config.yml.j2
+    dest: "{{ item }}"
+    mode: '0644'
+  loop:
+    - "{{ prometheus_web_config }}"
+    - "{{ node_exporter_web_config }}"
+    - "{{ process_exporter_web_config }}"
+
+- name: Move certificates
+  copy:
+    src: "{{ local_certs_dir }}/{{ item }}"
+    dest: "{{ prometheus_certs_dir }}"
+    mode: '600'
+  loop:
+    - "client/client.crt"
+    - "client/client.key"
+    - "server/server.crt"
+    - "server/server.key"
+    - "server/root-ca.cert"
+
+- name: Copy CA certificates
+  copy:
+    src: "{{ local_certs_dir }}/server/root-ca.cert"
+    dest: "{{ prometheus_certs_dir }}/ca.crt"
+    mode: '600'
+
 - name: Create Prometheus start script
   copy:
     dest: "{{ app_dir }}/bin/start-prometheus.sh"
@@ -36,7 +66,8 @@
               --storage.tsdb.path="{{ prometheus_data_dir }}" \
               --web.listen-address=0.0.0.0:9090 \
               --web.console.templates="{{ prometheus_config_dir }}/consoles" \
-              --web.console.libraries="{{ prometheus_config_dir }}/console_libraries"
+              --web.console.libraries="{{ prometheus_config_dir }}/console_libraries" \
+              --web.config.file={{ prometheus_config_dir }}/web-config.yml
           echo "Prometheus exited unexpectedly. Restarting in 5s..."
           sleep 5
       done
@@ -49,7 +80,8 @@
       #!/bin/bash
       while true; do
           "{{ node_exporter_bin }}" \
-              --web.listen-address=127.0.0.1:9100
+              --web.listen-address=127.0.0.1:9100 \
+              --web.config.file={{ prometheus_config_dir }}/web-config.yml
           echo "Node Exporter exited unexpectedly. Restarting in 5s..."
           sleep 5
       done
@@ -63,7 +95,8 @@
       while true; do
           "{{ process_exporter_bin }}" \
               --config.path="{{ process_exporter_config }}" \
-              --web.listen-address=127.0.0.1:9256
+              --web.listen-address=127.0.0.1:9256 \
+              --web.config.file={{ prometheus_config_dir }}/web-config.yml
           echo "Process Exporter exited unexpectedly. Restarting in 5s..."
           sleep 5
       done
@@ -121,19 +154,34 @@
     process_exporter_status.stdout == "stopped"
 
 - name: Verify Prometheus is responding
-  shell: "curl -sf http://localhost:9090/-/healthy > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'"
+  shell: |
+    curl --cacert {{ prometheus_certs_dir }}/ca.crt \
+         --cert {{ prometheus_certs_dir }}/client.crt \
+         --key {{ prometheus_certs_dir }}/client.key
+         -u "{{ prometheus_scrape_user }}:{{ prometheus_scrape_password }}" \
+         -sf https://localhost:9090/-/healthy > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'
   register: prometheus_health
   changed_when: false
   failed_when: false
 
 - name: Verify Node Exporter is responding
-  shell: "curl -sf http://localhost:9100/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'"
+  shell: |
+    curl --cacert {{ prometheus_certs_dir }}/ca.crt \
+         --cert {{ prometheus_certs_dir }}/client.crt \
+         --key {{ prometheus_certs_dir }}/client.key
+         -u "{{ prometheus_scrape_user }}:{{ prometheus_scrape_password }}" \
+        -sf https://localhost:9100/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'
   register: node_exporter_health
   changed_when: false
   failed_when: false
 
 - name: Verify Process Exporter is responding
-  shell: "curl -sf http://localhost:9256/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'"
+  shell: |
+    curl --cacert {{ prometheus_certs_dir }}/ca.crt \
+         --cert {{ prometheus_certs_dir }}/client.crt \
+         --key {{ prometheus_certs_dir }}/client.key
+         -u "{{ prometheus_scrape_user }}:{{ prometheus_scrape_password }}" \
+         -sf https://localhost:9256/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'
   register: process_exporter_health
   changed_when: false
   failed_when: false

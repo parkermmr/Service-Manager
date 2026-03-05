@@ -1,0 +1,25 @@
+# web-config.yml
+# Used by: node_exporter, process-exporter (and optionally prometheus)
+# Pass via flag: --web.config.file={{ prometheus_config_dir }}/web-config.yml
+#
+# Generate bcrypt password hash:
+#   htpasswd -nBC 12 '' | tr -d ':\n'
+# or: python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(12)).decode())"
+# or: promtool hash-password
+
+tls_server_config:
+  # Server certificate and key (presented to Prometheus scraper)
+  cert_file: {{ prometheus_certs_dir }}/server.crt
+  key_file: {{ prometheus_certs_dir }}/server.key
+
+  # mTLS: require and verify client certificate
+  client_auth_type: RequireAndVerifyClientCert
+  client_ca_file: {{ prometheus_certs_dir }}/ca.crt
+
+  # Recommended: restrict to modern TLS only
+  min_version: TLS13
+
+basic_auth_users:
+  # Key = username, value = bcrypt hash of password
+  # Replace with: htpasswd -nBC 12 '' | tr -d ':\n'
+  {{ prometheus_scrape_user }}: "{{ prometheus_scrape_password_hash }}"
