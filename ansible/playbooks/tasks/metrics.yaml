@@ -14,6 +14,25 @@
     - "{{ process_exporter_log_dir }}"
     - "{{ process_exporter_config_dir }}"
 
+- name: Create Install script
+  copy:
+    src: ../../bin/prometheus.sh
+    dest: "{{ app_home }}/.local/bin"
+    mode: '700'
+
+- name: Check if Binaries Exist
+  stat:
+    path: "{{ item }}"
+  loop:
+   - "{{ prometheus_bin }}"
+   - "{{ node_exporter_bin }}"
+   - "{{ process_exporter_bin }}"
+  register: binary_path
+
+- name: Install Binaries
+  shell: "{{ app_home }}/.local/bin/prometheus.sh"
+  when: not binary_path.results[0].stat.exists
+
 - name: Create Prometheus configuration from template
   template:
     src: prometheus.yml.j2
