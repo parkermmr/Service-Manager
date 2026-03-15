@@ -1,0 +1,89 @@
+---
+- name: Setup Node Environment
+  hosts: localhost
+  become: false
+
+  vars_prompt:
+    - name: build_tool
+      prompt: "Container build tool to use? (docker/podman)"
+      default: "docker"
+      private: false
+
+    - name: docker_login_required
+      prompt: "Do you want to login to a registry? (yes/no)"
+      default: "no"
+      private: false
+
+    - name: docker_username
+      prompt: "Registry username (skip if not logging in)"
+      default: ""
+      private: false
+
+    - name: docker_password
+      prompt: "Registry password (skip if not logging in)"
+      default: ""
+      private: true
+
+    - name: docker_registry
+      prompt: "Registry (press Enter for docker.io)"
+      default: "docker.io"
+      private: false
+
+  vars:
+    compose_tool: "{{ 'podman-compose' if build_tool == 'podman' else 'docker compose' }}"
+
+  tasks:
+
+    - name: Validate Build Tool
+      fail:
+        msg: "Invalid build tool '{{ build_tool }}'. Must be 'docker' or 'podman'."
+      when: build_tool not in ['docker', 'podman']
+
+    - name: Registry Login
+      shell: |
+        echo "{{ docker_password }}" | {{ build_tool }} login "{{ docker_registry }}" \
+          --username "{{ docker_username }}" \
+          --password-stdin
+      args:
+        executable: /bin/bash
+      register: login
+      no_log: true
+      when: docker_login_required | bool
+
+    - name: Report Login Output
+      debug:
+        msg: "{{ login.stdout_lines }}"
+      when: docker_login_required | bool
+
+    - name: Build Node Image
+      shell: |
+        {{ build_tool }} build \
+          --file ../../Dockerfile \
+          --build-arg REGISTRY="{{ docker_registry }}" \
+          --build-arg USER="somebody" \
+          --build-arg USER_UID="1000" \
+          --build-arg USER_GID="1000" \
+          --build-arg GITHUB_MIRROR="https://github.com" \
+          --build-arg INSTALL_ANSIBLE="false" \
+          --build-arg INSTALL_PROMETHEUS="true" \
+          --tag "localhost/node:v1.0.0" \
+          --progress=plain \
+          ../.. 2>&1
+      args:
+        executable: /bin/bash
+      register: build
+
+    - name: Report Build Output
+      debug:
+        msg: "{{ build.stdout_lines | reject('equalto', '') | list }}"
+
+    - name: Deploy Image Cluster
+      shell: |
+        {{ compose_tool }} -f ../../deployments/deployment.yaml up -d
+      args:
+        executable: /bin/bash
+      register: deploy
+
+    - name: Report Deploy Output
+      debug:
+        msg: "{{ deploy.stdout_lines | reject('equalto', '') | list }}"

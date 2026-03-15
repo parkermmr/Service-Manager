@@ -66,18 +66,18 @@ WORKDIR ${HOME}
 ##########################################
 # RUN PLUGINS AT BUILD TIME IF ENABLED
 ##########################################
-RUN if [ "$INSTALL_ANSIBLE" = "true" ]; then
-        echo "[build] Running ansible.sh..."
-        /ansible.sh
-    else
-        echo "[build] Skipping Ansible (INSTALL_ANSIBLE=false)"
+RUN if [ "$INSTALL_ANSIBLE" = "true" ]; then                            \
+        echo "[build] Running ansible.sh..." &&                         \
+        /ansible.sh;                                                    \
+    else                                                                \
+        echo "[build] Skipping Ansible (INSTALL_ANSIBLE=false)";        \
     fi
 
-RUN if [ "$INSTALL_PROMETHEUS" = "true" ]; then
-        echo "[build] Running prometheus.sh..."
-        /prometheus.sh
-    else
-        echo "[build] Skipping Prometheus (INSTALL_PROMETHEUS=false)"
+RUN if [ "$INSTALL_PROMETHEUS" = "true" ]; then                         \
+        echo "[build] Running prometheus.sh..." &&                      \
+        /prometheus.sh;                                                 \
+    else                                                                \
+        echo "[build] Skipping Prometheus (INSTALL_PROMETHEUS=false)";  \
     fi
 
 EXPOSE 2222

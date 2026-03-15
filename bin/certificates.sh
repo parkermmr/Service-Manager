@@ -3,7 +3,7 @@ set -e
 
 CA_DIRECTORY="$HOME/.prometheus/authority"
 CERTIFICATES="$HOME/.prometheus/certificates"
-mkdir -p $CA_DIRECTORY $CERTIFICATES
+mkdir -p $CA_DIRECTORY $CERTIFICATES $CERTIFICATES/server $CERTIFICATES/client
 
 echo '
 # Server Certificate Extension File

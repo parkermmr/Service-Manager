@@ -1,0 +1,26 @@
+apiVersion: ayb.dcas.dev/v1
+kind: Build
+metadata:
+  name: node-base
+spec:
+  from: alpine:3.18
+  repositories:
+    alpine:
+      - url: ${ALPINE_REGISTRY_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}/v3.18/main
+      - url: ${ALPINE_REGISTRY_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}/v3.18/community
+  packages:
+    - type: Alpine
+      names:
+        - bash
+        - openssh
+        - python3
+        - py3-pip
+        - curl
+        - gnupg
+        - libstdc++
+        - gcc
+        - util-linux
+        - build-base
+        - git
+  entrypoint:
+    - /bin/bash
