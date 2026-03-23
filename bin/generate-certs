@@ -1056,7 +1056,7 @@ generate_keystore() {
     local crt_file=$4
     
     local keystore_file="$dir/${name}-keystore.p12"
-    local password="${KEYSTORE_PASSWORD:-$(openssl rand -base64 32)}"
+    local password="${KEYSTORE_PASSWORD:-$(openssl rand -hex 32)}"
     
     print_info "Creating PKCS12 keystore..."
     
@@ -1095,7 +1095,7 @@ generate_jks_keystore() {
     local crt_file=$4
     
     local jks_keystore_file="$dir/${name}-keystore.jks"
-    local password="${KEYSTORE_PASSWORD:-$(openssl rand -base64 32)}"
+    local password="${KEYSTORE_PASSWORD:-$(openssl rand -hex 32)}"
     
     print_info "Creating JKS keystore..."
     
@@ -1151,7 +1151,7 @@ generate_truststore() {
     local name=$2
     
     local truststore_file="$dir/${name}-truststore.jks"
-    local password="${TRUSTSTORE_PASSWORD:-$(openssl rand -base64 32)}"
+    local password="${TRUSTSTORE_PASSWORD:-$(openssl rand -hex 32)}"
     
     print_info "Creating JKS truststore..."
     
