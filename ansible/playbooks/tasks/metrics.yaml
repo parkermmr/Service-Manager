@@ -176,7 +176,7 @@
   shell: |
     curl --cacert {{ prometheus_certs_dir }}/ca.crt \
          --cert {{ prometheus_certs_dir }}/client.crt \
-         --key {{ prometheus_certs_dir }}/client.key
+         --key {{ prometheus_certs_dir }}/client.key \
          -u "{{ prometheus_scrape_user }}:{{ prometheus_scrape_password }}" \
          -sf https://localhost:9090/-/healthy > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'
   register: prometheus_health
@@ -187,7 +187,7 @@
   shell: |
     curl --cacert {{ prometheus_certs_dir }}/ca.crt \
          --cert {{ prometheus_certs_dir }}/client.crt \
-         --key {{ prometheus_certs_dir }}/client.key
+         --key {{ prometheus_certs_dir }}/client.key \
          -u "{{ prometheus_scrape_user }}:{{ prometheus_scrape_password }}" \
         -sf https://localhost:9100/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'
   register: node_exporter_health
@@ -198,7 +198,7 @@
   shell: |
     curl --cacert {{ prometheus_certs_dir }}/ca.crt \
          --cert {{ prometheus_certs_dir }}/client.crt \
-         --key {{ prometheus_certs_dir }}/client.key
+         --key {{ prometheus_certs_dir }}/client.key \
          -u "{{ prometheus_scrape_user }}:{{ prometheus_scrape_password }}" \
          -sf https://localhost:9256/metrics > /dev/null 2>&1 && echo 'OK' || echo 'FAIL'
   register: process_exporter_health

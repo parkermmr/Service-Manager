@@ -4,6 +4,9 @@
 # Central Prometheus - federates from each node's local Prometheus instance.
 # Node exporters and process exporters are bound to 127.0.0.1 inside each
 # container and scraped locally. Only Prometheus port 9090 is exposed.
+#
+# All federation scrapes use mTLS + basic auth against the node Prometheus
+# instances. Certs are mounted at /etc/prometheus/certs.
 
 global:
   scrape_interval: 15s
@@ -32,84 +35,90 @@ rule_files:
 ##########################################
 scrape_configs:
   ##########################################
-  # PROMETHEUS SELF-MONITORING
+  # PROMETHEUS SELF-MONITORING (central)
   ##########################################
   - job_name: 'prometheus'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      cert_file: /etc/prometheus/certs/client.crt
+      key_file: /etc/prometheus/certs/client.key
+      insecure_skip_verify: true
+    basic_auth:
+      username: 'prometheus'
+      password: 'password'
     static_configs:
       - targets: ['localhost:9090']
         labels:
-          instance: 'prometheus-server'
+          instance: 'prometheus-central'
 
   ##########################################
   # NODE FEDERATION
-  # Pulls node_exporter + process_exporter
-  # metrics from each node's local Prometheus
-  # via the /federate endpoint.
+  # Pulls node_exporter + process_exporter +
+  # prometheus metrics from each node's local
+  # Prometheus via the /federate endpoint.
+  #
+  # honor_labels: true preserves the instance/
+  # hostname labels set by each node's local
+  # Prometheus, so metrics stay correctly
+  # attributed per-node.
   ##########################################
   - job_name: 'federate-node-1'
     honor_labels: true
     metrics_path: '/federate'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      cert_file: /etc/prometheus/certs/client.crt
+      key_file: /etc/prometheus/certs/client.key
+      insecure_skip_verify: true
+    basic_auth:
+      username: 'prometheus'
+      password: 'password'
     params:
-      match[]:
+      'match[]':
         - '{job="node-exporter"}'
         - '{job="process-exporter"}'
         - '{job="prometheus"}'
     static_configs:
       - targets: ['host.docker.internal:9091']
-    relabel_configs:
-      - target_label: instance
-        replacement: 'node-1:9256'
-      - target_label: hostname
-        replacement: 'node-1'
 
   - job_name: 'federate-node-2'
     honor_labels: true
     metrics_path: '/federate'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      cert_file: /etc/prometheus/certs/client.crt
+      key_file: /etc/prometheus/certs/client.key
+      insecure_skip_verify: true
+    basic_auth:
+      username: 'prometheus'
+      password: 'password'
     params:
-      match[]:
+      'match[]':
         - '{job="node-exporter"}'
         - '{job="process-exporter"}'
         - '{job="prometheus"}'
     static_configs:
       - targets: ['host.docker.internal:9092']
-    relabel_configs:
-      - target_label: instance
-        replacement: 'node-2:9256'
-      - target_label: hostname
-        replacement: 'node-2'
 
   - job_name: 'federate-node-3'
     honor_labels: true
     metrics_path: '/federate'
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/certs/ca.crt
+      cert_file: /etc/prometheus/certs/client.crt
+      key_file: /etc/prometheus/certs/client.key
+      insecure_skip_verify: true
+    basic_auth:
+      username: 'prometheus'
+      password: 'password'
     params:
-      match[]:
+      'match[]':
         - '{job="node-exporter"}'
         - '{job="process-exporter"}'
         - '{job="prometheus"}'
     static_configs:
       - targets: ['host.docker.internal:9093']
-    relabel_configs:
-      - target_label: instance
-        replacement: 'node-3:9256'
-      - target_label: hostname
-        replacement: 'node-3'
-
-  ##########################################
-  # BLACKBOX EXPORTER (OPTIONAL)
-  ##########################################
-  # - job_name: 'blackbox-ssh'
-  #   metrics_path: /probe
-  #   params:
-  #     module: [tcp_connect]
-  #   static_configs:
-  #     - targets:
-  #         - 'host.docker.internal:2223'
-  #         - 'host.docker.internal:2224'
-  #         - 'host.docker.internal:2225'
-  #   relabel_configs:
-  #     - source_labels: [__address__]
-  #       target_label: __param_target
-  #     - source_labels: [__param_target]
-  #       target_label: instance
-  #     - target_label: __address__
-  #       replacement: blackbox-exporter:9115

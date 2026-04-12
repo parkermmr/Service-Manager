@@ -2,24 +2,45 @@
 - name: Stop All Services on Nodes
   hosts: nodes
   become: false
-  
+
   tasks:
-    - name: Stop all running services
+    - name: Stop exporter and Prometheus processes
       shell: |
-        pkill 'prometheus' || true
-        pkill 'node_exporter' || true
-        pkill 'process_exporter' || true
+        set +e
+        SELF=$$
+        kill_matching() {
+          local pattern="$1"
+          for pid in $(pgrep -f "$pattern" 2>/dev/null); do
+            [ "$pid" = "$SELF" ] && continue
+            [ "$pid" = "$PPID" ] && continue
+            kill "$pid" 2>/dev/null
+          done
+        }
+        kill_matching 'start-prometheus\.sh'
+        kill_matching 'start-node-exporter\.sh'
+        kill_matching 'start-process-exporter\.sh'
+        kill_matching '{{ prometheus_bin }}'
+        kill_matching '{{ node_exporter_bin }}'
+        kill_matching '{{ process_exporter_bin }}'
+        exit 0
       args:
         executable: /bin/bash
-      
+      changed_when: false
+
+    - name: Wait briefly for shutdown
+      pause:
+        seconds: 2
+
     - name: Verify services stopped
       shell: |
-        pgrep 'prometheus' && echo "Prometheus still running" || echo "Prometheus stopped"
-        pgrep 'node_exporter' && echo "Node Exporter still running" || echo "Node Exporter stopped"
-        pgrep 'process_exporter' && echo "Process Exporter still running" || echo "Process Exporter stopped"
+        set +e
+        pgrep -x prometheus       >/dev/null && echo "Prometheus: RUNNING"       || echo "Prometheus: stopped"
+        pgrep -x node_exporter    >/dev/null && echo "Node Exporter: RUNNING"    || echo "Node Exporter: stopped"
+        pgrep -x process-exporter >/dev/null && echo "Process Exporter: RUNNING" || echo "Process Exporter: stopped"
+        exit 0
       register: service_status
       changed_when: false
-      
+
     - name: Display service status
       debug:
         var: service_status.stdout_lines

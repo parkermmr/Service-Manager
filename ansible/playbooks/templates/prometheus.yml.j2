@@ -1,59 +1,90 @@
 # Prometheus Configuration for {{ inventory_hostname }}
+#
+# Scrapes are directed at localhost (exporters bind to 127.0.0.1 and are
+# only reachable from inside the container), but the `instance` label is
+# rewritten to '{{ inventory_hostname }}:<port>' via relabeling so that
+# downstream dashboards and federation see a stable, meaningful identity
+# regardless of whether targets are specified by DNS name, IP, or loopback.
+#
+# The port is extracted from __address__ so there's one source of truth
+# for the port number per job.
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
     cluster: 'node-cluster'
     environment: 'production'
-    instance: '{{ inventory_hostname }}'
     node_id: '{{ node_id }}'
 
 scrape_configs:
+  ##########################################
   # Prometheus self-monitoring
+  ##########################################
   - job_name: 'prometheus'
     scheme: https
     tls_config:
       ca_file: {{ prometheus_certs_dir }}/ca.crt
       cert_file: {{ prometheus_certs_dir }}/client.crt
       key_file: {{ prometheus_certs_dir }}/client.key
-      # Optionally pin the server name if using a shared cert:
-      # server_name: prometheus.local
+      # Shared server cert isn't issued for 'localhost', skip hostname
+      # verification. mTLS + basic auth still provide identity + authz.
+      insecure_skip_verify: true
     basic_auth:
       username: '{{ prometheus_scrape_user }}'
       password: '{{ prometheus_scrape_password }}'
     static_configs:
       - targets: ['localhost:9090']
         labels:
-          instance: '{{ inventory_hostname }}'
+          hostname: '{{ hostname }}'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '.*:(\d+)'
+        replacement: '{{ inventory_hostname }}:${1}'
+        target_label: instance
 
-  # Node Exporter - system metrics (localhost only)
+  ##########################################
+  # Node Exporter
+  ##########################################
   - job_name: 'node-exporter'
     scheme: https
     tls_config:
       ca_file: {{ prometheus_certs_dir }}/ca.crt
       cert_file: {{ prometheus_certs_dir }}/client.crt
       key_file: {{ prometheus_certs_dir }}/client.key
+      insecure_skip_verify: true
     basic_auth:
       username: '{{ prometheus_scrape_user }}'
       password: '{{ prometheus_scrape_password }}'
     static_configs:
       - targets: ['localhost:9100']
         labels:
-          instance: '{{ inventory_hostname }}'
           hostname: '{{ hostname }}'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '.*:(\d+)'
+        replacement: '{{ inventory_hostname }}:${1}'
+        target_label: instance
 
-  # Process Exporter - process metrics (localhost only)
+  ##########################################
+  # Process Exporter
+  ##########################################
   - job_name: 'process-exporter'
     scheme: https
     tls_config:
       ca_file: {{ prometheus_certs_dir }}/ca.crt
       cert_file: {{ prometheus_certs_dir }}/client.crt
       key_file: {{ prometheus_certs_dir }}/client.key
+      insecure_skip_verify: true
     basic_auth:
       username: '{{ prometheus_scrape_user }}'
       password: '{{ prometheus_scrape_password }}'
     static_configs:
       - targets: ['localhost:9256']
         labels:
-          instance: '{{ inventory_hostname }}'
           hostname: '{{ hostname }}'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '.*:(\d+)'
+        replacement: '{{ inventory_hostname }}:${1}'
+        target_label: instance

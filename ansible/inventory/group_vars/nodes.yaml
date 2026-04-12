@@ -3,7 +3,7 @@
 metrics_enabled: true
 application_enabled: true
 
-local_certs_dir: /home/parke/.prometheus/certificates
+local_certs_dir: /home/parker/.prometheus/certificates
 
 prometheus_scrape_user: prometheus
 prometheus_scrape_password: password

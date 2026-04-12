@@ -1,55 +1,170 @@
 ##########################################
 # DOCKER COMPOSE - MONITORING STACK
 ##########################################
-# Deploy Prometheus and Grafana for cluster monitoring
+# Deploy Prometheus (federating from node-local Prometheus instances over
+# mTLS + basic auth) and Grafana (TLS server-side) for cluster monitoring.
+#
 # Usage: docker compose -f docker/monitoring.yaml up -d
+#
+# Required on host:
+#   - ${CERTS_DIR:-/home/parker/.prometheus/certificates} containing:
+#       client/client.crt, client/client.key
+#       server/server.crt, server/server.key
+#       server/root-ca.cert
+#
+# Grafana reaches Prometheus over the internal monitoring network (plain
+# HTTP), which is fine — the sensitive boundary is node-local Prometheus,
+# which is already protected with mTLS+auth. Grafana itself exposes HTTPS
+# on :3000 using the shared server cert.
 
 services:
   ##########################################
-  # PROMETHEUS
+  # VOLUME INIT (chown data dirs)
+  ##########################################
+  # Named volumes are created root-owned. Prometheus runs as nobody (65534)
+  # and Grafana as 472 — neither can write to a root-owned volume. This
+  # one-shot container fixes ownership before the services start.
+  volume-init:
+    image: alpine:latest
+    container_name: monitoring-volume-init
+    user: "0:0"
+    volumes:
+      - prometheus-data:/prometheus
+      - grafana-data:/grafana
+      - grafana-dashboards:/dashboards
+    environment:
+      - TARGET_UID=${USER_UID:-1000}
+      - TARGET_GID=${USER_GID:-1000}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        chown -R $${TARGET_UID}:$${TARGET_GID} /prometheus /grafana /dashboards
+        echo "Volume ownership set to $${TARGET_UID}:$${TARGET_GID}."
+    restart: "no"
+
+  ##########################################
+  # DASHBOARD FETCHER (init)
+  ##########################################
+  # One-shot container that downloads the Node Exporter Full (1860) and
+  # Process Exporter (22161) dashboards from grafana.com into the shared
+  # grafana-dashboards volume. Runs before Grafana starts.
+  dashboard-fetcher:
+    image: alpine:latest
+    container_name: dashboard-fetcher
+    user: "0:0"
+    volumes:
+      - grafana-dashboards:/dashboards
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        apk add --no-cache curl jq >/dev/null
+        echo "Fetching Node Exporter Full (1860)..."
+        curl -fsSL -o /tmp/node.json \
+          "https://grafana.com/api/dashboards/1860/revisions/latest/download"
+        echo "Fetching Process Exporter (22161)..."
+        curl -fsSL -o /tmp/proc.json \
+          "https://grafana.com/api/dashboards/22161/revisions/latest/download"
+        # grafana.com dashboards come in "export" format with __inputs and
+        # $${DS_PROMETHEUS} placeholders. Strip the metadata blocks and
+        # rewrite every datasource reference to the provisioned "Prometheus"
+        # datasource so the file provisioner accepts them.
+        jq_filter='
+          del(.__inputs, .__requires, .__elements) |
+          walk(
+            if type == "object" and has("datasource") then
+              if (.datasource | type) == "string" then .datasource = "Prometheus"
+              elif (.datasource | type) == "object" then .datasource = {type: "prometheus", uid: "PBFA97CFB590B2093"}
+              else . end
+            else . end
+          )
+        '
+        jq "$$jq_filter" /tmp/node.json > /dashboards/node-exporter-full.json
+        jq "$$jq_filter" /tmp/proc.json > /dashboards/process-exporter.json
+        chown ${USER_UID:-1000}:${USER_GID:-1000} /dashboards/*.json
+        echo "Dashboards ready:"
+        ls -la /dashboards
+    restart: "no"
+    networks:
+      - monitoring
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
+
+  ##########################################
+  # PROMETHEUS (central / federating)
   ##########################################
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     hostname: prometheus
     restart: unless-stopped
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'
+      - '--web.config.file=/etc/prometheus/web-config.yaml'
     ports:
       - "9090:9090"
     volumes:
       - ../prometheus/prometheus-cluster.yaml:/etc/prometheus/prometheus.yml:ro
+      - ../prometheus/web-config.yaml:/etc/prometheus/web-config.yaml:ro
       - ../prometheus/alerts.yaml:/etc/prometheus/alerts.yaml:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/client/client.crt:/etc/prometheus/certs/client.crt:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/client/client.key:/etc/prometheus/certs/client.key:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/server/server.crt:/etc/prometheus/certs/server.crt:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/server/server.key:/etc/prometheus/certs/server.key:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/server/root-ca.cert:/etc/prometheus/certs/ca.crt:ro
       - prometheus-data:/prometheus
     networks:
       - monitoring
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      volume-init:
+        condition: service_completed_successfully
 
   ##########################################
-  # GRAFANA
+  # GRAFANA (TLS)
   ##########################################
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
     hostname: grafana
     restart: unless-stopped
+    user: "${USER_UID:-1000}:${USER_GID:-1000}"
     ports:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana-dashboards:/var/lib/grafana/dashboards
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/server/server.crt:/etc/grafana/certs/server.crt:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/server/server.key:/etc/grafana/certs/server.key:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/client/client.crt:/etc/grafana/certs/client.crt:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/client/client.key:/etc/grafana/certs/client.key:ro
+      - ${CERTS_DIR:-/home/parker/.prometheus/certificates}/server/root-ca.cert:/etc/grafana/certs/ca.crt:ro
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_PROTOCOL=https
+      - GF_SERVER_CERT_FILE=/etc/grafana/certs/server.crt
+      - GF_SERVER_CERT_KEY=/etc/grafana/certs/server.key
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     networks:
       - monitoring
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_started
+      dashboard-fetcher:
+        condition: service_completed_successfully
 
   ##########################################
   # ALERTMANAGER (OPTIONAL)
@@ -73,6 +188,9 @@ services:
 volumes:
   prometheus-data:
   grafana-data:
+  grafana-dashboards:
+    name: grafana-dashboards
+    external: false
   # alertmanager-data:
 
 ##########################################
@@ -81,4 +199,4 @@ volumes:
 networks:
   monitoring:
     name: monitoring
-    driver: bridge
+    external: true

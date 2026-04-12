@@ -1,0 +1,32 @@
+##########################################
+# GRAFANA DATASOURCE PROVISIONING
+##########################################
+# The central Prometheus enforces mTLS + basic auth on port 9090.
+# Grafana connects as a client using the shared client cert/key and
+# the 'prometheus:password' basic auth credentials.
+#
+# tlsSkipVerify: true because the shared server cert isn't issued for
+# the 'prometheus' service DNS name.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: https://prometheus:9090
+    isDefault: true
+    editable: true
+    basicAuth: true
+    basicAuthUser: prometheus
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST
+      tlsAuth: true
+      tlsAuthWithCACert: true
+      tlsSkipVerify: true
+    secureJsonData:
+      basicAuthPassword: password
+      tlsCACert: $__file{/etc/grafana/certs/ca.crt}
+      tlsClientCert: $__file{/etc/grafana/certs/client.crt}
+      tlsClientKey: $__file{/etc/grafana/certs/client.key}
