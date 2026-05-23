@@ -1,0 +1,113 @@
+#!/bin/bash
+set -euo pipefail
+
+SERVICES_DIR="${SERVICES_DIR:-/etc/services.d}"
+LOG_TIMESTAMPS="${LOG_TIMESTAMPS:-1}"
+LOG_COLOR="${LOG_COLOR:-auto}"
+
+# ── color setup ─────────────────────────────────────────────
+case "$LOG_COLOR" in
+    always) USE_COLOR=1 ;;
+    never)  USE_COLOR=0 ;;
+    auto)   [ -t 1 ] && USE_COLOR=1 || USE_COLOR=0 ;;
+esac
+
+if [ "$USE_COLOR" = "1" ]; then
+    C_RESET=$'\033[0m'
+    C_DIM=$'\033[2m'
+    C_BOLD=$'\033[1m'
+    C_CYAN=$'\033[36m'
+    C_YELLOW=$'\033[33m'
+    C_GREEN=$'\033[32m'
+    C_RED=$'\033[31m'
+else
+    C_RESET= C_DIM= C_BOLD= C_CYAN= C_YELLOW= C_GREEN= C_RED=
+fi
+
+# ── log formatter: prefix each line with [ts] [service] ─────
+log_prefix() {
+    local tag="$1" color="$2"
+    while IFS= read -r line; do
+        local ts=""
+        [ "$LOG_TIMESTAMPS" = "1" ] && ts="${C_DIM}$(date -u +%H:%M:%S)${C_RESET} "
+        printf "%s${color}[%s]${C_RESET} %s\n" "$ts" "$tag" "$line"
+    done
+}
+
+info() { echo "ready" | log_prefix entrypoint "$C_CYAN" >/dev/null; printf "%s${C_CYAN}[entrypoint]${C_RESET} %s\n" "$([ "$LOG_TIMESTAMPS" = "1" ] && echo "${C_DIM}$(date -u +%H:%M:%S)${C_RESET} ")" "$*"; }
+
+# ── process supervision ─────────────────────────────────────
+declare -a PIDS=()
+declare -a NAMES=()
+
+shutdown() {
+    info "received signal, shutting down ${#PIDS[@]} service(s)..."
+    for i in "${!PIDS[@]}"; do
+        local pid=${PIDS[$i]}
+        local name=${NAMES[$i]}
+        if kill -0 "$pid" 2>/dev/null; then
+            info "stopping ${name} (pid ${pid})"
+            kill -TERM "$pid" 2>/dev/null || true
+        fi
+    done
+    local deadline=$(($(date +%s) + 10))
+    for pid in "${PIDS[@]}"; do
+        while kill -0 "$pid" 2>/dev/null && [ "$(date +%s)" -lt "$deadline" ]; do
+            sleep 0.2
+        done
+        kill -KILL "$pid" 2>/dev/null || true
+    done
+    info "shutdown complete"
+    exit 0
+}
+
+trap shutdown TERM INT HUP
+
+# ── start services ──────────────────────────────────────────
+shopt -s nullglob
+services=("$SERVICES_DIR"/*.sh)
+shopt -u nullglob
+
+if [ ${#services[@]} -eq 0 ]; then
+    info "no services in ${SERVICES_DIR}"
+    if [ $# -gt 0 ]; then
+        info "exec: $*"
+        exec "$@"
+    else
+        info "no command, exec bash"
+        exec /bin/bash
+    fi
+fi
+
+info "starting ${#services[@]} service(s) from ${SERVICES_DIR}"
+
+# rotating colors for service tags
+COLORS=("$C_GREEN" "$C_YELLOW" "$C_CYAN" "$C_RED")
+
+for i in "${!services[@]}"; do
+    script="${services[$i]}"
+    name=$(basename "$script" .sh)
+    color="${COLORS[$((i % ${#COLORS[@]}))]}"
+    info "starting ${name}"
+    (
+        bash "$script" 2>&1 | log_prefix "$name" "$color"
+    ) &
+    PIDS+=("$!")
+    NAMES+=("$name")
+done
+
+info "all services started; waiting"
+
+# Wait for any service to exit; if one dies, shut everything down
+while true; do
+    for i in "${!PIDS[@]}"; do
+        pid=${PIDS[$i]}
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" 2>/dev/null
+            rc=$?
+            info "service ${NAMES[$i]} (pid ${pid}) exited with rc=${rc}"
+            shutdown
+        fi
+    done
+    sleep 1
+done

@@ -1,0 +1,106 @@
+#!/bin/bash
+set -euo pipefail
+
+PLUGIN_DIR="${PLUGIN_DIR:-/usr/local/share/plugins}"
+PLUGIN_ENV="${PLUGIN_ENV:-/etc/plugins.env}"
+
+[ -f "$PLUGIN_ENV" ] && { set -a; . "$PLUGIN_ENV"; set +a; }
+
+die() { echo "plugins: $*" >&2; exit 1; }
+
+plugin_path() {
+    local name="$1"
+    local path="${PLUGIN_DIR}/${name}.sh"
+    [ -f "$path" ] || die "unknown plugin: ${name}"
+    echo "$path"
+}
+
+plugin_meta() {
+    local path="$1" key="$2"
+    grep -m1 "^# ${key}:" "$path" 2>/dev/null | sed "s/^# ${key}:[[:space:]]*//"
+}
+
+expand_names() {
+    local names=()
+    for arg in "$@"; do
+        IFS=',' read -ra parts <<< "$arg"
+        for p in "${parts[@]}"; do
+            p="${p#"${p%%[![:space:]]*}"}"
+            p="${p%"${p##*[![:space:]]}"}"
+            [ -n "$p" ] && names+=("$p")
+        done
+    done
+    [ ${#names[@]} -gt 0 ] && printf '%s\n' "${names[@]}"
+}
+
+cmd_list() {
+    [ -d "$PLUGIN_DIR" ] || die "plugin directory not found: ${PLUGIN_DIR}"
+    for path in "$PLUGIN_DIR"/*.sh; do
+        [ -f "$path" ] || continue
+        local name desc
+        name=$(basename "$path" .sh)
+        desc=$(plugin_meta "$path" description)
+        printf "%-20s %s\n" "$name" "${desc:-}"
+    done
+}
+
+cmd_info() {
+    local name="${1:-}"
+    [ -n "$name" ] || die "usage: plugins info <name>"
+    local path
+    path=$(plugin_path "$name")
+    echo "name:        $name"
+    echo "description: $(plugin_meta "$path" description)"
+    echo "version:     $(plugin_meta "$path" version)"
+    echo "path:        $path"
+}
+
+cmd_install() {
+    local names
+    names=$(expand_names "$@") || true
+    if [ -z "$names" ]; then
+        echo "plugins: nothing to install"
+        return 0
+    fi
+    while IFS= read -r name; do
+        local path
+        path=$(plugin_path "$name")
+        echo "==> Installing plugin: ${name}"
+        bash "$path"
+    done <<< "$names"
+}
+
+cmd_help() {
+    cat <<EOF
+Usage: plugins <command> [args...]
+
+Commands:
+  list                List available plugins
+  info <name>         Show plugin metadata
+  install <name>...   Install one or more plugins (comma- or space-separated)
+  help                Show this help
+
+Environment:
+  PLUGIN_DIR          Plugin directory (default: /usr/local/share/plugins)
+  PLUGIN_ENV          Plugin env file (default: /etc/plugins.env)
+
+The env file is sourced before any plugin runs, providing default versions
+and mirror URLs. Users can override by exporting variables in their shell
+before running 'plugins install'.
+
+Examples:
+  plugins install ansible
+  plugins install ansible,prometheus
+  ANSIBLE_VERSION=2.16.0 plugins install ansible
+EOF
+}
+
+cmd="${1:-help}"
+shift || true
+case "$cmd" in
+    list)    cmd_list "$@" ;;
+    info)    cmd_info "$@" ;;
+    install) cmd_install "$@" ;;
+    help|-h|--help) cmd_help ;;
+    *) die "unknown command: ${cmd} (try 'plugins help')" ;;
+esac

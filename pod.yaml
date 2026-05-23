@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workstation-scratch
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: workstation
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: workstation
+      image: ghcr.io/parkermmr/service-manager/workstation:main
+      command: ["sleep", "infinity"]
+      stdin: true
+      tty: true
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      volumeMounts:
+        - name: scratch
+          mountPath: /scratch/local
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /opt/home/somebody/.cache
+  volumes:
+    - name: scratch
+      persistentVolumeClaim:
+        claimName: workstation-scratch
+    - name: tmp
+      emptyDir: {}
+    - name: cache
+      emptyDir: {}

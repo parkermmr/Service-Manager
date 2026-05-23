@@ -1,26 +1,35 @@
 apiVersion: ayb.dcas.dev/v1
 kind: Build
 metadata:
-  name: node-base
+  name: workstation:base
 spec:
-  from: alpine:3.18
+  from: ${BASE:-python:3.13-slim}
+  user:
+    uid: 1000
+    shell: /bin/bash
+    username: somebody
   repositories:
-    alpine:
-      - url: ${ALPINE_REGISTRY_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}/v3.18/main
-      - url: ${ALPINE_REGISTRY_MIRROR:-https://dl-cdn.alpinelinux.org/alpine}/v3.18/community
+    debian:
+      - url: ${DEBIAN_REGISTRY_MIRROR:-http://deb.debian.org/debian} trixie main
+      - url: ${DEBIAN_REGISTRY_MIRROR:-http://deb.debian.org/debian} trixie-updates main
   packages:
-    - type: Alpine
+    - type: Debian
       names:
         - bash
-        - openssh
-        - python3
-        - py3-pip
+        - openssh-server
+        - openssh-client
         - curl
         - gnupg
-        - libstdc++
+        - libstdc++6
         - gcc
         - util-linux
-        - build-base
+        - build-essential
         - git
+        - vim
+        - jq
+        - ca-certificates
+        - gzip
+        - tar
+        - code-server
   entrypoint:
     - /bin/bash
